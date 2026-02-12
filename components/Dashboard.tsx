@@ -281,127 +281,236 @@ const Dashboard: React.FC<DashboardProps> = ({ patients }) => {
          )}
       </div>
 
-      {/* --- RELATÓRIO PDF PARA IMPRESSÃO (A4 FORMATADO) --- */}
+      {/* --- RELATÓRIO PDF PARA IMPRESSÃO (PÁGINA ÚNICA A4) --- */}
       <div className="hidden print:block bg-white text-slate-950 p-0 font-sans">
         <style>{`
-          @page { size: A4; margin: 15mm; }
+          @page { size: A4; margin: 10mm; }
           body { background: white !important; -webkit-print-color-adjust: exact; }
-          .print-header { border-bottom: 5px solid #0f172a; padding-bottom: 15px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }
-          .print-title { font-size: 24px; font-weight: 900; color: #0f172a; text-transform: uppercase; letter-spacing: -1px; }
-          .print-stats-grid { display: grid; grid-template-cols: repeat(4, 1fr); gap: 10px; margin-bottom: 30px; }
-          .print-stat-card { border: 1px solid #e2e8f0; padding: 12px; border-radius: 10px; text-align: center; }
-          .print-stat-card p { font-size: 8px; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 2px; }
-          .print-stat-card h3 { font-size: 18px; font-weight: 900; color: #0f172a; }
-          .print-section-title { font-size: 11px; font-weight: 900; color: #1e40af; text-transform: uppercase; margin-bottom: 12px; border-left: 4px solid #1e40af; padding-left: 10px; }
-          .print-intro { font-size: 10px; line-height: 1.5; color: #334155; margin-bottom: 25px; text-align: justify; }
-          .print-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-          .print-table th { background: #f1f5f9; border: 1px solid #cbd5e1; padding: 8px; text-align: left; font-size: 9px; text-transform: uppercase; font-weight: 900; }
-          .print-table td { border: 1px solid #e2e8f0; padding: 8px; font-size: 9px; font-weight: 600; }
-          .print-footer { position: fixed; bottom: 0; left: 0; right: 0; border-top: 1px solid #e2e8f0; padding-top: 15px; display: flex; justify-content: space-between; align-items: center; }
-          .creator-logo { display: flex; items-center gap: 8px; }
+          
+          .print-container { 
+            width: 100%; 
+            height: 277mm; /* Ajuste para caber em 1 página A4 com margens */
+            margin: 0; 
+            background: white; 
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+          }
+
+          .print-header { 
+            border-bottom: 4px solid #0f172a; 
+            padding-bottom: 8px; 
+            margin-bottom: 15px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+          }
+
+          .print-title { font-size: 22px; font-weight: 900; color: #0f172a; text-transform: uppercase; letter-spacing: -1px; }
+
+          /* Cards de Ocupação - Um ao lado do outro com sombra */
+          .print-stats-row { 
+            display: grid; 
+            grid-template-cols: repeat(6, 1fr); 
+            gap: 8px; 
+            margin-bottom: 15px; 
+          }
+
+          .print-stat-card { 
+            border: 1px solid #e2e8f0; 
+            padding: 10px 4px; 
+            border-radius: 12px; 
+            text-align: center; 
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08) !important;
+            background: #fff !important;
+          }
+
+          .print-stat-card p { font-size: 6.5px; font-weight: 900; color: #64748b; text-transform: uppercase; margin-bottom: 2px; }
+          .print-stat-card h3 { font-size: 18px; font-weight: 900; color: #0f172a; line-height: 1; }
+
+          /* Gráficos em Linha */
+          .print-charts-row { 
+            display: grid; 
+            grid-template-cols: 1fr 1fr; 
+            gap: 15px; 
+            margin-bottom: 15px; 
+          }
+
+          .print-chart-box { 
+            border: 1px solid #f1f5f9; 
+            padding: 8px; 
+            border-radius: 12px; 
+            background: #fafafa !important; 
+          }
+
+          .print-chart-title { font-size: 8px; font-weight: 900; color: #1e40af; text-transform: uppercase; margin-bottom: 6px; }
+          
+          .print-chart-content { 
+            height: 100px; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 2px; 
+            justify-content: center;
+          }
+
+          .chart-item { display: flex; align-items: center; gap: 4px; font-size: 7px; font-weight: 700; }
+          .chart-bar-bg { flex: 1; height: 6px; background: #e2e8f0; border-radius: 2px; overflow: hidden; }
+          .chart-bar-fill { height: 100%; background: #2563eb; }
+
+          /* Tabela Distribuição por Especialidade */
+          .print-table-section { margin-bottom: 15px; flex: 1; }
+          .print-table { width: 100%; border-collapse: collapse; border: 1.5px solid #334155; }
+          .print-table th { background-color: #eff6ff !important; border: 1px solid #94a3b8; padding: 5px; text-align: left; font-size: 8px; text-transform: uppercase; font-weight: 900; color: #1e40af; }
+          .print-table td { border: 1px solid #e2e8f0; padding: 5px; font-size: 8px; font-weight: 700; }
+          .print-table tr:nth-child(even) { background-color: #f8fafc !important; }
+
+          /* Análise IA */
+          .print-ai-section { 
+            background: #f8fafc !important; 
+            border: 1.5px solid #e2e8f0; 
+            border-radius: 16px; 
+            padding: 12px; 
+            margin-bottom: 10px;
+          }
+          .print-ai-title { font-size: 9px; font-weight: 900; color: #1e40af; text-transform: uppercase; margin-bottom: 6px; display: flex; align-items: center; gap: 4px; }
+          .print-ai-text { font-size: 8.5px; line-height: 1.4; color: #1e293b; font-weight: 700; margin-bottom: 8px; font-style: italic; }
+          .print-ai-tips { font-size: 8px; font-weight: 700; color: #065f46; display: grid; grid-template-cols: 1fr 1fr 1fr; gap: 10px; }
+
+          /* Rodapé Fixo */
+          .print-footer { 
+            border-top: 2px solid #e2e8f0; 
+            padding-top: 8px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-top: auto; 
+            height: 35px;
+          }
         `}</style>
         
-        <div className="print-header">
-           <div className="flex items-center gap-3">
-              <Activity className="w-10 h-10 text-blue-600" />
-              <div>
-                <h1 className="print-title leading-none">HospFlow</h1>
-                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Relatório Gerencial de Unidade</p>
-              </div>
-           </div>
-           <div className="text-right">
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Emissão</p>
-              <p className="font-bold text-xs">{new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR')}</p>
-           </div>
-        </div>
+        <div className="print-container">
+          {/* Cabeçalho */}
+          <div className="print-header">
+             <div className="flex items-center gap-3">
+                <Activity className="w-10 h-10 text-blue-600" />
+                <div>
+                  <h1 className="print-title leading-none">HospFlow</h1>
+                  <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mt-0.5">Painel Gerencial Assistencial • Gestão de Leitos e Fluxo</p>
+                </div>
+             </div>
+             <div className="text-right">
+                <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Emissão de Relatório</p>
+                <p className="font-bold text-xs text-slate-800">{new Date().toLocaleDateString('pt-BR')} - {new Date().toLocaleTimeString('pt-BR')}</p>
+             </div>
+          </div>
 
-        <div className="print-intro">
-           O presente documento consolida os indicadores operacionais e clínicos da unidade assistencial, processados digitalmente pelo sistema HospFlow. Este relatório visa fornecer subsídios para a coordenação de enfermagem e diretoria clínica na gestão do fluxo de pacientes, identificação de gargalos de atendimento e priorização de recursos físicos.
-        </div>
+          {/* Cards de Ocupação - Um ao lado do outro */}
+          <div className="print-stats-row">
+             {[
+               { label: 'Ocupação Total', val: stats.total },
+               { label: 'Internados', val: stats.internados },
+               { label: 'Observação', val: stats.observacao },
+               { label: 'Reavaliação', val: stats.reavaliacao },
+               { label: 'Em Macas', val: stats.macas },
+               { label: 'Em Cadeiras', val: stats.cadeiras }
+             ].map(stat => (
+               <div key={stat.label} className="print-stat-card">
+                  <p>{stat.label}</p>
+                  <h3>{stat.val}</h3>
+               </div>
+             ))}
+          </div>
 
-        <h4 className="print-section-title">Consolidado de Ocupação Atual</h4>
-        <div className="print-stats-grid">
-           <div className="print-stat-card">
-              <p>Ocupação Total</p>
-              <h3>{stats.total}</h3>
-           </div>
-           <div className="print-stat-card">
-              <p>Pacientes Internados</p>
-              <h3>{stats.internados}</h3>
-           </div>
-           <div className="print-stat-card">
-              <p>Em Observação</p>
-              <h3>{stats.observacao}</h3>
-           </div>
-           <div className="print-stat-card">
-              <p>Em Reavaliação</p>
-              <h3>{stats.reavaliacao}</h3>
-           </div>
-           <div className="print-stat-card">
-              <p>Em Macas</p>
-              <h3>{stats.macas}</h3>
-           </div>
-           <div className="print-stat-card">
-              <p>Em Cadeiras</p>
-              <h3>{stats.cadeiras}</h3>
-           </div>
-           <div className="print-stat-card">
-              <p>Pendências Ativas</p>
-              <h3>{stats.pendencias}</h3>
-           </div>
-           <div className="print-stat-card">
-              <p>Gargalos de Fluxo</p>
-              <h3>{stats.gargalos}</h3>
-           </div>
-        </div>
+          {/* Gráficos Lado a Lado */}
+          <div className="print-charts-row">
+             <div className="print-chart-box">
+                <p className="print-ai-title"><BarChart3 className="w-3 h-3" /> Pacientes por Especialidade</p>
+                <div className="print-chart-content">
+                   {specialtyData.slice(0, 7).map(s => (
+                     <div key={s.name} className="chart-item">
+                        <div className="w-16 truncate uppercase">{s.name}</div>
+                        <div className="chart-bar-bg">
+                           <div className="chart-bar-fill" style={{ width: `${(s.value / stats.total) * 100}%` }}></div>
+                        </div>
+                        <div className="w-4 text-right">{s.value}</div>
+                     </div>
+                   ))}
+                </div>
+             </div>
+             <div className="print-chart-box">
+                <p className="print-ai-title"><PieChartIcon className="w-3 h-3" /> Status Geral da Unidade</p>
+                <div className="print-chart-content">
+                   {statusPieData.map(s => (
+                      <div key={s.name} className="chart-item justify-between border-b border-slate-100 pb-1 mb-1">
+                         <div className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: s.color }}></div>
+                            <span className="uppercase">{s.name}</span>
+                         </div>
+                         <span className="text-slate-900">{s.value} ({stats.total > 0 ? ((s.value / stats.total) * 100).toFixed(0) : 0}%)</span>
+                      </div>
+                   ))}
+                </div>
+             </div>
+          </div>
 
-        <h4 className="print-section-title">Distribuição por Especialidade</h4>
-        <table className="print-table">
-           <thead>
-              <tr>
-                 <th>Especialidade Médica</th>
-                 <th style={{ textAlign: 'center' }}>Total de Pacientes</th>
-                 <th style={{ textAlign: 'center' }}>Representatividade (%)</th>
-              </tr>
-           </thead>
-           <tbody>
-              {specialtyData.map(s => (
-                <tr key={s.name}>
-                   <td>{s.name.toUpperCase()}</td>
-                   <td style={{ textAlign: 'center' }}>{s.value}</td>
-                   <td style={{ textAlign: 'center' }}>{((s.value / stats.total) * 100).toFixed(1)}%</td>
-                </tr>
-              ))}
-           </tbody>
-        </table>
+          {/* Tabela Distribuição por Especialidade */}
+          <div className="print-table-section">
+             <p className="print-ai-title mb-2">Distribuição Detalhada por Especialidade</p>
+             <table className="print-table">
+                <thead>
+                   <tr>
+                      <th style={{ width: '50%' }}>Especialidade Médica</th>
+                      <th style={{ textAlign: 'center', width: '25%' }}>Volume de Pacientes</th>
+                      <th style={{ textAlign: 'center', width: '25%' }}>Representatividade</th>
+                   </tr>
+                </thead>
+                <tbody>
+                   {specialtyData.map(s => (
+                     <tr key={s.name}>
+                        <td className="uppercase">{s.name}</td>
+                        <td style={{ textAlign: 'center' }}>{s.value}</td>
+                        <td style={{ textAlign: 'center' }}>{((s.value / stats.total) * 100).toFixed(1)}%</td>
+                     </tr>
+                   ))}
+                </tbody>
+             </table>
+          </div>
 
-        <h4 className="print-section-title">Análise de Gestão Inteligente (IA)</h4>
-        <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-8">
-           <p className="text-[10px] font-bold text-slate-800 leading-relaxed mb-4">
-              {aiAnalysis.summary}
-           </p>
-           <p className="text-[9px] font-black text-blue-800 uppercase mb-2">Propostas de Melhoria Estratégica:</p>
-           <ul className="space-y-1">
-              {aiAnalysis.improvements.map((tip, i) => (
-                <li key={i} className="text-[9px] font-bold text-slate-600">• {tip}</li>
-              ))}
-           </ul>
-        </div>
+          {/* Análise IA */}
+          <div className="print-ai-section">
+             <div className="print-ai-title">
+                <Sparkles className="w-3.5 h-3.5" /> Análise de Gestão Inteligente (HospFlow IA)
+             </div>
+             <p className="print-ai-text">
+                {aiAnalysis.summary || "Unidade em monitoramento contínuo. Análise de fluxo baseada nos indicadores de tempo de permanência e giro de leitos."}
+             </p>
+             <div className="print-ai-tips">
+                {aiAnalysis.improvements.map((tip, i) => (
+                  <div key={i} className="flex items-start gap-1">
+                     <span className="text-blue-500">•</span>
+                     <span>{tip}</span>
+                  </div>
+                ))}
+             </div>
+          </div>
 
-        <div className="print-footer">
-           <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-tight">
-              <p>Documento auditado digitalmente pela plataforma HospFlow Assistencial.</p>
-              <p>Relatório de uso restrito à equipe multidisciplinar e gestão.</p>
-           </div>
-           <div className="creator-logo">
-              <div className="text-right">
-                 <span className="block text-[10px] font-black text-slate-900 uppercase leading-none">Marcos</span>
-                 <span className="block text-[10px] font-black text-emerald-600 uppercase mt-1 leading-none">Araújo</span>
-              </div>
-              <div className="p-2 bg-slate-50 rounded-lg border border-slate-200">
-                 <Stethoscope className="w-6 h-6 text-emerald-600" />
-              </div>
-           </div>
+          {/* Rodapé */}
+          <div className="print-footer">
+             <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest leading-none">
+                <p>Relatório Gerencial • HospFlow v3.2 • Gestão Baseada em Dados</p>
+                <p className="mt-1">Hob / Upa Noroeste • Documento de Uso Restrito</p>
+             </div>
+             <div className="flex items-center gap-2">
+                <div className="text-right">
+                   <span className="block text-[8px] font-black text-slate-900 uppercase leading-none">Marcos Araújo</span>
+                   <span className="block text-[7px] font-black text-emerald-600 uppercase mt-0.5 leading-none">Gestão em Saúde</span>
+                </div>
+                <div className="w-7 h-7 bg-slate-50 rounded-lg flex items-center justify-center border border-slate-200 shadow-sm">
+                   <Stethoscope className="w-4 h-4 text-emerald-600" />
+                </div>
+             </div>
+          </div>
         </div>
       </div>
     </div>

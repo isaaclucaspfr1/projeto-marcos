@@ -673,71 +673,161 @@ const PatientList: React.FC<PatientListProps> = ({ patients, role, onDeletePatie
       {/* --- RELATÓRIO PARA IMPRESSÃO (A4) --- */}
       <div className="hidden print:block bg-white text-slate-950 p-0 font-sans">
         <style>{`
-          @page { size: A4; margin: 10mm; }
+          @page { size: A4; margin: 15mm; }
           body { -webkit-print-color-adjust: exact; background: white !important; }
-          .print-header { border-bottom: 3px solid #0f172a; padding-bottom: 10px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: flex-end; }
-          .print-table { width: 100%; border-collapse: collapse; border: 1px solid #cbd5e1; }
-          .print-table th { background: #f8fafc; border: 1px solid #cbd5e1; padding: 6px; text-align: left; font-size: 8px; text-transform: uppercase; font-weight: 900; }
-          .print-table td { border: 1px solid #e2e8f0; padding: 6px; font-size: 8px; vertical-align: top; }
-          .print-table tr:nth-child(even) { background: #fdfdfd; }
-          .print-footer { border-top: 1px solid #e2e8f0; margin-top: 20px; padding-top: 10px; display: flex; justify-content: space-between; align-items: center; }
-          .alert-badge { font-weight: 900; color: #dc2626; font-size: 7px; display: block; margin-bottom: 1px; }
-          .status-badge { font-weight: 700; font-size: 8px; }
-          .print-container { width: 210mm; margin: 0 auto; background: white; }
+          
+          /* Evita cortes de texto no topo e rodapé da página */
+          .print-container { 
+            width: 210mm; 
+            margin: 0 auto; 
+            background: white; 
+            padding-bottom: 50px; /* Margem para o rodapé fixo */
+          }
+
+          .print-header { 
+            border-bottom: 3px solid #0f172a; 
+            padding-bottom: 15px; 
+            margin-bottom: 20px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: flex-end; 
+          }
+
+          .print-table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            border: 1.5px solid #334155; 
+            table-layout: fixed; /* Força o respeito às larguras definidas */
+          }
+
+          /* Títulos das Colunas (Cabeçalho com fundo azul suave) */
+          .print-table thead {
+            display: table-header-group; /* Faz o cabeçalho repetir em todas as páginas */
+          }
+
+          .print-table th { 
+            background-color: #f0f9ff !important; /* Azul suave */
+            border: 1px solid #94a3b8; 
+            padding: 8px 4px; 
+            text-align: center; 
+            font-size: 7.5px; 
+            text-transform: uppercase; 
+            font-weight: 900; 
+            color: #1e40af; /* Texto azul escuro */
+          }
+
+          /* Células de Conteúdo */
+          .print-table td { 
+            border: 1px solid #cbd5e1; 
+            padding: 8px 4px; 
+            font-size: 7.5px; 
+            vertical-align: middle; 
+            word-wrap: break-word;
+            font-weight: 600;
+          }
+
+          /* Zebra e Efeito de Quebra */
+          .print-table tr {
+            break-inside: avoid; /* Impede que uma linha seja cortada entre páginas */
+          }
+          .print-table tr:nth-child(even) { 
+            background-color: #f8fafc !important; 
+          }
+
+          .print-footer { 
+            position: fixed;
+            bottom: 0;
+            left: 15mm;
+            right: 15mm;
+            border-top: 2px solid #e2e8f0; 
+            padding-top: 10px; 
+            padding-bottom: 10px;
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            background: white;
+            height: 40px;
+          }
+
+          .alert-badge { 
+            font-weight: 900; 
+            color: #dc2626; 
+            font-size: 6.5px; 
+            display: block; 
+            margin-bottom: 1px; 
+            line-height: 1.1;
+          }
+
+          .status-highlight {
+            font-weight: 900;
+            color: #1e40af;
+          }
+
+          .badge-special {
+            background-color: #f1f5f9;
+            border: 0.5px solid #cbd5e1;
+            padding: 1px 2px;
+            border-radius: 2px;
+          }
         `}</style>
         
         <div className="print-container">
           <div className="print-header">
              <div className="flex items-center gap-3">
-                <Activity className="w-8 h-8 text-blue-600" />
+                <Activity className="w-10 h-10 text-blue-600" />
                 <div>
-                  <h1 className="text-xl font-black uppercase tracking-tighter leading-none">HospFlow</h1>
-                  <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mt-0.5">Gestão de Unidade Assistencial</p>
+                  <h1 className="text-2xl font-black uppercase tracking-tighter leading-none text-slate-900">HospFlow</h1>
+                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-0.5">Gestão de Unidade Assistencial</p>
                 </div>
              </div>
              <div className="text-right">
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Data do Relatório</p>
-                <p className="font-bold text-xs">{new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR')}</p>
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Emissão de Relatório</p>
+                <p className="font-bold text-xs text-slate-800">{new Date().toLocaleDateString('pt-BR')} - {new Date().toLocaleTimeString('pt-BR')}</p>
              </div>
           </div>
 
-          <h3 className="text-[10px] font-black uppercase text-slate-900 tracking-widest mb-3">Lista Ativa de Pacientes na Unidade</h3>
+          <div className="mb-4 bg-slate-900 text-white p-2 rounded-lg inline-block">
+            <h3 className="text-[10px] font-black uppercase tracking-widest px-2">Lista Ativa de Pacientes • {filtered.length} Registros</h3>
+          </div>
 
           <table className="print-table">
             <thead>
               <tr>
-                <th style={{ width: '22%' }}>Paciente (Nome/Social)</th>
-                <th style={{ width: '5%' }}>Idade</th>
-                <th style={{ width: '10%' }}>Prontuário</th>
-                <th style={{ width: '12%' }}>Especialidade</th>
-                <th style={{ width: '8%' }}>Acomod.</th>
-                <th style={{ width: '10%' }}>Status</th>
-                <th style={{ width: '15%' }}>Localização</th>
-                <th style={{ width: '18%' }}>Alertas/Pendências</th>
+                <th style={{ width: '22%' }}>PACIENTE (NOME/SOCIAL)</th>
+                <th style={{ width: '5%' }}>IDADE</th>
+                <th style={{ width: '9%' }}>PRONTUÁRIO</th>
+                <th style={{ width: '12%' }}>ESPECIALIDADE</th>
+                <th style={{ width: '8%' }}>ACOMOD.</th>
+                <th style={{ width: '10%' }}>STATUS</th>
+                <th style={{ width: '16%' }}>LOCALIZAÇÃO</th>
+                <th style={{ width: '18%' }}>ALERTAS/PENDÊNCIAS</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map(p => (
                 <tr key={p.id}>
-                  <td>
-                    <div className="font-black uppercase">{p.name}</div>
-                    {p.socialName && <div className="text-slate-500 text-[7px] italic mt-0.5">Social: {p.socialName}</div>}
+                  <td className="text-left px-3">
+                    <div className="font-black uppercase text-slate-900 leading-tight">{p.name}</div>
+                    {p.socialName && <div className="text-slate-500 text-[6.5px] italic font-bold">Social: {p.socialName}</div>}
                   </td>
-                  <td className="text-center font-bold">{p.age}a</td>
-                  <td className="font-mono text-center font-bold">{p.medicalRecord}</td>
-                  <td className="font-bold uppercase">{p.specialty}</td>
-                  <td className="text-center font-bold uppercase">{p.situation}</td>
-                  <td className="text-center font-bold uppercase">{p.status}</td>
-                  <td className="text-[7px] uppercase font-bold leading-tight">{p.corridor}</td>
-                  <td>
-                    <div className="space-y-0.5">
+                  <td className="text-center font-black">{p.age}a</td>
+                  <td className="text-center font-mono font-bold text-slate-700">{p.medicalRecord}</td>
+                  <td className="text-center font-black uppercase">{p.specialty}</td>
+                  <td className="text-center font-black uppercase">{p.situation}</td>
+                  <td className="text-center font-black uppercase text-blue-700">{p.status}</td>
+                  <td className="text-center text-[7px] uppercase font-bold leading-tight px-2">{p.corridor}</td>
+                  <td className="px-3">
+                    <div className="space-y-1">
                       {p.hasAllergy && <span className="alert-badge text-purple-700">● ALERGIA: {p.allergyDetails}</span>}
-                      {p.hasLesion && <span className="alert-badge text-orange-600">● LESÃO: {p.lesionDescription}</span>}
-                      {isVenousAccessExpired(p.venousAccess || '') && <span className="alert-badge text-red-600">● ACESSO VENCIDO</span>}
+                      {p.hasLesion && <span className="alert-badge text-amber-600">● LESÃO: {p.lesionDescription}</span>}
+                      {isVenousAccessExpired(p.venousAccess || '') && <span className="alert-badge text-red-600 animate-pulse">● ACESSO VENCIDO (96H)</span>}
                       {(!p.hasBracelet || !p.hasBedIdentification) && <span className="alert-badge">● FALHA IDENTIFICAÇÃO</span>}
-                      {p.pendencies !== 'Nenhuma' && <span className="alert-badge">● {p.pendencies.toUpperCase()}</span>}
+                      {p.pendencies !== 'Nenhuma' && <span className="alert-badge text-slate-700 font-bold italic">● {p.pendencies.toUpperCase()}</span>}
                       {p.disabilities && p.disabilities.length > 0 && (
                         <span className="alert-badge text-emerald-700">● DEFICIÊNCIA: {p.disabilities.join(', ').toUpperCase()}</span>
+                      )}
+                      {!p.hasAllergy && !p.hasLesion && p.pendencies === 'Nenhuma' && !isVenousAccessExpired(p.venousAccess || '') && (
+                        <span className="text-[6.5px] text-emerald-600 font-black uppercase tracking-tight">Sem Pendências Críticas</span>
                       )}
                     </div>
                   </td>
@@ -747,12 +837,20 @@ const PatientList: React.FC<PatientListProps> = ({ patients, role, onDeletePatie
           </table>
 
           <div className="print-footer">
-             <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-tight">
-                <p>Relatório Gerado por: {role.toUpperCase()} - Usuário: {role === 'coordenacao' ? 'COORD' : 'ENF'}</p>
-                <p>HospFlow v3.2 • Unidade: {patients.length > 0 ? "HOB" : "ATIVO"}</p>
+             <div className="text-[7.5px] font-black text-slate-400 uppercase tracking-widest leading-none">
+                <p>Relatório Gerado por: {role.toUpperCase()} • Sistema HospFlow v3.2</p>
+                <p className="mt-1">Documento Assistencial de Uso Restrito</p>
              </div>
              
-             <MarcosAraujoLogo />
+             <div className="flex items-center gap-2">
+                <div className="text-right">
+                  <span className="block text-[8px] font-black text-slate-900 uppercase tracking-widest leading-none">Marcos Araújo</span>
+                  <span className="block text-[8px] font-black text-emerald-600 uppercase tracking-widest mt-1 leading-none">Gestão em Saúde</span>
+                </div>
+                <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center border border-slate-200">
+                  <Stethoscope className="w-5 h-5 text-emerald-600" />
+                </div>
+             </div>
           </div>
         </div>
       </div>
