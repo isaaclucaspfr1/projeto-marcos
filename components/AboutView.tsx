@@ -1,35 +1,13 @@
+
 import React, { useState } from 'react';
-import { Info, Mail, Send, ArrowLeft, Activity, User, ShieldCheck, HeartPulse, Stethoscope, Sparkles } from 'lucide-react';
+import { Info, Mail, Send, ArrowLeft, Activity, User, ShieldCheck, HeartPulse, Stethoscope, Sparkles, Lock, Gavel, Scale } from 'lucide-react';
 import { User as UserType } from '../types';
+import BrandLogo from './BrandLogo';
 
 interface AboutViewProps {
   user: UserType;
   onBack: () => void;
 }
-
-const MarcosAraujoLogo = () => (
-  <div className="flex flex-col items-center">
-    <div className="relative group">
-      {/* Brilho de fundo suave */}
-      <div className="absolute -inset-2 bg-emerald-500/10 rounded-full blur-xl group-hover:bg-emerald-500/20 transition-all"></div>
-      
-      {/* Container da Logo */}
-      <div className="relative w-16 h-16 bg-white rounded-2xl border border-slate-100 flex items-center justify-center shadow-sm overflow-visible">
-        {/* Estetoscópio Verde Central */}
-        <Stethoscope className="w-10 h-10 text-emerald-600" />
-        
-        {/* Símbolo de IA Dourado (Pequeno lateral) */}
-        <div className="absolute -top-1 -right-1 bg-amber-50 p-1.5 rounded-lg border border-amber-200 shadow-sm animate-pulse">
-          <Sparkles className="w-4 h-4 text-amber-500 fill-amber-500" />
-        </div>
-      </div>
-    </div>
-    <div className="mt-3 text-center">
-      <span className="block text-[10px] font-black text-slate-900 uppercase tracking-[0.2em] leading-none">Marcos</span>
-      <span className="block text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em] mt-1 leading-none">Araújo</span>
-    </div>
-  </div>
-);
 
 const AboutView: React.FC<AboutViewProps> = ({ user, onBack }) => {
   const [feedback, setFeedback] = useState({ name: user.name, username: user.username, text: '' });
@@ -53,19 +31,54 @@ const AboutView: React.FC<AboutViewProps> = ({ user, onBack }) => {
             <Info className="w-8 h-8 text-blue-500" />
             <h2 className="text-2xl font-black tracking-tighter uppercase">Sobre o HospFlow</h2>
           </div>
-          <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Tecnologia a serviço da vida</p>
+          <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Tecnologia, Ética e Segurança de Dados</p>
         </div>
         
         <div className="p-8 space-y-6 text-slate-700 leading-relaxed font-medium">
           <p>
-            O <strong>HospFlow</strong> foi concebido como uma solução estratégica para enfrentar um dos maiores desafios da gestão hospitalar moderna: a superlotação e o atendimento em corredores.
+            O <strong>HospFlow</strong> foi desenvolvido como uma solução estratégica para enfrentar um dos principais desafios da gestão hospitalar moderna: a superlotação e o controle eficiente do fluxo de pacientes.
           </p>
           <p>
-            Sua <strong>intenção principal</strong> é agilizar o cadastro e o monitoramento de pacientes que aguardam leitos fixos, transformando o corredor em um ambiente assistencial rastreável, seguro e organizado. Através de uma interface intuitiva, o aplicativo permite que o <strong>enfermeiro</strong> tenha uma visão holística da sua ala e que o <strong>técnico de enfermagem (fluxista ou escalado)</strong> execute suas tarefas com precisão digital, eliminando gargalos de papelada.
+            Sua proposta é otimizar o monitoramento em tempo real, tornando o ambiente assistencial mais organizado, rastreável e seguro. Por meio de uma interface intuitiva e funcional, o aplicativo oferece ao enfermeiro uma visão ampla e integrada do setor, enquanto possibilita ao técnico de enfermagem executar suas atividades com maior precisão, agilidade e registro digital confiável.
           </p>
           <p>
-            Para a <strong>coordenação</strong>, o HospFlow atua como um painel de controle em tempo real, permitindo identificar instantaneamente a carga de pacientes por especialidade, gerenciar transferências críticas e monitorar pendências de segurança do paciente (AIH, pulseiras e identificação de leito).
+            Além de apoiar diretamente a gestão hospitalar, o sistema gera dados em tempo real, relatórios diários e mensais, além de dashboards gerenciais que auxiliam na tomada de decisões estratégicas.
           </p>
+          <p>
+            O HospFlow representa uma solução inovadora e tecnológica, contribuindo para a modernização dos processos assistenciais e para o avanço da saúde no contexto da transformação digital.
+          </p>
+
+          {/* Seção de Segurança e LGPD */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
+            <div className="bg-blue-50/50 p-6 rounded-[2rem] border border-blue-100">
+               <div className="flex items-center gap-2 mb-3">
+                  <Lock className="w-4 h-4 text-blue-600" />
+                  <h4 className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Segurança e LGPD</h4>
+               </div>
+               <p className="text-xs text-blue-900 leading-relaxed">
+                  O sistema opera em total conformidade com a <strong>Lei Geral de Proteção de Dados (LGPD)</strong>. Utilizamos criptografia e persistência local segura, garantindo que informações sensíveis não sejam compartilhadas indevidamente. O acesso é restrito via autenticação numérica pessoal.
+               </p>
+            </div>
+            <div className="bg-emerald-50/50 p-6 rounded-[2rem] border border-emerald-100">
+               <div className="flex items-center gap-2 mb-3">
+                  <Gavel className="w-4 h-4 text-emerald-600" />
+                  <h4 className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Propriedade Intelectual</h4>
+               </div>
+               <p className="text-xs text-emerald-900 leading-relaxed">
+                  O HospFlow é de autoria e propriedade intelectual exclusiva do desenvolvedor <strong>Marcos Araújo</strong>. O projeto foi criado de forma <strong>independente e fora de qualquer vínculo empregatício</strong> ou obrigações contratuais com instituições terceiras.
+               </p>
+            </div>
+          </div>
+
+          <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-200">
+             <div className="flex items-center gap-2 mb-3">
+                <Scale className="w-4 h-4 text-slate-600" />
+                <h4 className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Termos de Uso Institucional</h4>
+             </div>
+             <p className="text-xs text-slate-700 leading-relaxed">
+                A disponibilização deste aplicativo para uso oficial em unidades assistenciais de saúde ocorre exclusivamente mediante a formalização de um <strong>Termo de Cooperação Técnica</strong> ou <strong>Contrato de Licença de Software</strong>. Tais instrumentos garantem a responsabilidade mútua, a governança dos dados e a segurança jurídica de ambas as partes.
+             </p>
+          </div>
           
           <div className="pt-10 border-t border-slate-100">
              <div className="flex flex-col md:flex-row items-center justify-between gap-8">
@@ -79,7 +92,7 @@ const AboutView: React.FC<AboutViewProps> = ({ user, onBack }) => {
                    
                    <div className="h-16 w-px bg-slate-100 hidden md:block"></div>
                    
-                   <MarcosAraujoLogo />
+                   <BrandLogo size={96} />
                 </div>
                 
                 <div className="text-center md:text-right">

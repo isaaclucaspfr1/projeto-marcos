@@ -15,6 +15,7 @@ import LeanPatientForm from './components/LeanPatientForm';
 import LeanPatientList from './components/LeanPatientList';
 import LeanDashboard from './components/LeanDashboard';
 import AboutView from './components/AboutView';
+import BrandLogo from './components/BrandLogo';
 import { 
   UserPlus, 
   Users, 
@@ -59,24 +60,6 @@ const safeLoad = (key: string) => {
     return null;
   }
 };
-
-const MarcosAraujoLogo = () => (
-  <div className="flex flex-col items-center">
-    <div className="relative group">
-      <div className="absolute -inset-2 bg-emerald-500/10 rounded-full blur-xl group-hover:bg-emerald-500/20 transition-all"></div>
-      <div className="relative w-12 h-12 bg-white rounded-2xl border border-slate-100 flex items-center justify-center shadow-sm overflow-visible">
-        <Stethoscope className="w-7 h-7 text-emerald-600" />
-        <div className="absolute -top-1 -right-1 bg-amber-50 p-1 rounded-lg border border-amber-200 shadow-sm animate-pulse">
-          <Sparkles className="w-3 h-3 text-amber-500 fill-amber-500" />
-        </div>
-      </div>
-    </div>
-    <div className="mt-2 text-center">
-      <span className="block text-[8px] font-black text-slate-900 uppercase tracking-[0.2em] leading-none">Marcos</span>
-      <span className="block text-[8px] font-black text-emerald-600 uppercase tracking-[0.2em] mt-0.5 leading-none">Araújo</span>
-    </div>
-  </div>
-);
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(() => {
@@ -427,7 +410,7 @@ const App: React.FC = () => {
             </div>
             <div className="flex flex-col items-center mt-2">
               <p className="text-slate-400 text-[9px] font-black uppercase tracking-widest mb-3">Criado por:</p>
-              <MarcosAraujoLogo />
+              <BrandLogo />
             </div>
           </div>
         );

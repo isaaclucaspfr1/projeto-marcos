@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Logo Marcos Araújo</title>
+  <desc id="desc">Marca verde com estetoscópio envolvendo as letras M A e brilhos dourados.</desc>
+  <defs>
+    <linearGradient id="g-main" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0f9d58" />
+      <stop offset="50%" stop-color="#17b26a" />
+      <stop offset="100%" stop-color="#0b7a3b" />
+    </linearGradient>
+    <linearGradient id="g-dark" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0c3f26" />
+      <stop offset="100%" stop-color="#0b2f1e" />
+    </linearGradient>
+    <radialGradient id="g-plate" cx="40%" cy="40%" r="70%">
+      <stop offset="0%" stop-color="#2bd184" stop-opacity="0.85" />
+      <stop offset="100%" stop-color="#0b7539" stop-opacity="0.95" />
+    </radialGradient>
+    <linearGradient id="g-glow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#b4ffcf" stop-opacity="0.85" />
+      <stop offset="100%" stop-color="#3ee18f" stop-opacity="0.2" />
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#0b3f26" flood-opacity="0.3" />
+    </filter>
+  </defs>
+
+  <rect x="32" y="32" width="448" height="448" rx="110" fill="#f6fff9" />
+
+  <path d="M152 190c0-82 62-140 140-140 79 0 140 54 140 126 0 78-58 120-128 120h-32c-30 0-54 22-54 52 0 26 22 48 52 48 16 0 30-4 42-11" fill="none" stroke="url(#g-main)" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" filter="url(#shadow)" />
+
+  <path d="M360 324c22 12 36 32 36 57 0 42-36 71-82 71-44 0-80-30-80-70" fill="none" stroke="url(#g-dark)" stroke-width="10" stroke-linecap="round" stroke-dasharray="6 12" opacity="0.45" />
+
+  <circle cx="380" cy="354" r="34" fill="url(#g-main)" stroke="#0c3b21" stroke-width="6" filter="url(#shadow)" />
+  <circle cx="380" cy="354" r="18" fill="#e6fff2" stroke="#0c3b21" stroke-width="4" />
+
+  <rect x="214" y="52" width="24" height="62" rx="12" fill="#0c3f26" />
+  <rect x="276" y="52" width="24" height="62" rx="12" fill="#0c3f26" />
+  <rect x="208" y="40" width="36" height="22" rx="10" fill="#23b46d" />
+  <rect x="268" y="40" width="36" height="22" rx="10" fill="#23b46d" />
+
+  <ellipse cx="242" cy="230" rx="158" ry="122" fill="url(#g-plate)" filter="url(#shadow)" />
+  <ellipse cx="246" cy="234" rx="146" ry="112" fill="url(#g-dark)" opacity="0.6" />
+  <ellipse cx="240" cy="222" rx="138" ry="106" fill="url(#g-glow)" opacity="0.6" />
+
+  <path d="M156 314c-16-16-26-44-26-76 0-68 51-118 124-118 76 0 120 44 120 102 0 21-5 42-16 58" fill="none" stroke="url(#g-main)" stroke-width="14" stroke-linecap="round" opacity="0.35" />
+
+  <g fill="#ffffff" filter="url(#shadow)">
+    <path d="M162 304l0-166h42l32 82 32-82h42l0 166h-40l0-88-34 88h-20l-34-88 0 88z" />
+    <path d="M320 304l48-166h36l48 166h-40l-8-28h-36l-8 28zm56-56h22l-10-36z" transform="translate(-20,0)" />
+  </g>
+
+  <g fill="#f8c93f" stroke="#f4a11e" stroke-width="2" stroke-linejoin="round" filter="url(#shadow)">
+    <path d="M388 178l6-18 6 18 18 6-18 6-6 18-6-18-18-6z" />
+    <path d="M354 134l4-12 4 12 12 4-12 4-4 12-4-12-12-4z" />
+    <path d="M410 118l5-15 5 15 15 5-15 5-5 15-5-15-15-5z" />
+  </g>
+</svg>

@@ -89,14 +89,8 @@ const ClinicalDecision: React.FC<ClinicalDecisionProps> = ({ patients, onUpdateP
     setShowFilterModal(false);
     setCurrentFilterType(filterType);
     
-      try {
-         const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || (import.meta as any)?.env?.VITE_GEMINI_API_KEY;
-         if (!apiKey) {
-            alert("Chave da API Gemini não configurada.");
-            return;
-         }
-
-         const ai = new GoogleGenAI({ apiKey });
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       
       const objective = filterType === 'all' 
         ? "PRIORIZAR VAGA EM ENFERMARIA (Sair do corredor para leito fixo)." 
@@ -130,7 +124,7 @@ const ClinicalDecision: React.FC<ClinicalDecisionProps> = ({ patients, onUpdateP
         obs: p.notes 
       })))}`;
 
-         const response = await ai.models.generateContent({
+      const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: prompt,
         config: {
@@ -150,9 +144,7 @@ const ClinicalDecision: React.FC<ClinicalDecisionProps> = ({ patients, onUpdateP
         }
       });
 
-         // A SDK expõe o texto via metodo text() (ou text property, conforme versão)
-         const rawText = typeof response.text === 'function' ? response.text() : response.text;
-         const analysis = JSON.parse(rawText || '[]');
+      const analysis = JSON.parse(response.text || '[]');
       const enriched = analysis.map((a: any) => {
         const p = eligible.find(p => p.id === a.id);
         return { ...p, ...a };

@@ -1,7 +1,8 @@
 
 import React from 'react';
 import { User, AppView } from '../types';
-import { ChevronLeft, LogOut, Activity, ShieldCheck, Stethoscope, Briefcase } from 'lucide-react';
+import { ChevronLeft, LogOut, ShieldCheck, Stethoscope, Briefcase } from 'lucide-react';
+import BrandLogo from './BrandLogo';
 
 interface LayoutProps {
   user: User;
@@ -37,9 +38,12 @@ const Layout: React.FC<LayoutProps> = ({ user, currentView, selectedUnit, onBack
                 <ChevronLeft className="w-5 h-5" />
               </button>
             )}
-            <div className="flex items-center gap-2 bg-slate-950 px-3 py-1.5 rounded-xl shadow-lg border border-blue-900/50">
-              <Activity className="w-5 h-5 text-white" />
-              <h1 className="text-lg font-black text-white tracking-tighter">HospFlow</h1>
+            <div className="flex items-center gap-3 bg-slate-950 px-3 py-1.5 rounded-xl shadow-lg border border-blue-900/50">
+              <BrandLogo size={38} glow={false} />
+              <div className="leading-tight">
+                <h1 className="text-lg font-black text-white tracking-tighter">HospFlow</h1>
+                <p className="text-[9px] font-black text-blue-200 uppercase tracking-[0.25em]">Gestão de Enfermagem</p>
+              </div>
             </div>
           </div>
 
