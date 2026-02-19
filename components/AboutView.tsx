@@ -8,7 +8,6 @@ interface AboutViewProps {
   user: UserType;
   onBack: () => void;
 }
-
 const AboutView: React.FC<AboutViewProps> = ({ user, onBack }) => {
   const [feedback, setFeedback] = useState({ name: user.name, username: user.username, text: '' });
   const [sent, setSent] = useState(false);
