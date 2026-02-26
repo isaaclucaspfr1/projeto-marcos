@@ -33,7 +33,9 @@ import {
   TrendingUp,
   LayoutDashboard,
   Stethoscope,
-  Sparkles
+  Sparkles,
+  Bell,
+  X
 } from 'lucide-react';
 
 const safeSave = (key: string, data: any) => {
@@ -110,6 +112,8 @@ const App: React.FC = () => {
   const [password, setPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
+  const [showPendencyReminder, setShowPendencyReminder] = useState(false);
+  const hasCheckedOnLogin = React.useRef(false);
 
   // Carregar dados iniciais do banco de dados
   useEffect(() => {
@@ -129,6 +133,37 @@ const App: React.FC = () => {
     };
     loadData();
   }, []);
+
+  // Sistema de Lembrete de Pendências
+  useEffect(() => {
+    if (!user) {
+      hasCheckedOnLogin.current = false;
+      setShowPendencyReminder(false);
+      return;
+    }
+
+    const checkPendencies = () => {
+      const pendencyCount = patients.filter(p => !p.isTransferred && (p.pendencies !== 'Nenhuma' || !p.hasBracelet || !p.hasBedIdentification)).length;
+      if (pendencyCount > 0) {
+        setShowPendencyReminder(true);
+      }
+    };
+
+    // Verificação imediata ao logar (apenas para Técnico e Enfermeiro)
+    if (!hasCheckedOnLogin.current && patients.length > 0) {
+      if (user.role === 'tecnico' || user.role === 'enfermeiro') {
+        checkPendencies();
+      }
+      hasCheckedOnLogin.current = true;
+    }
+
+    // Intervalo de 30 minutos (1800000 ms)
+    const interval = setInterval(checkPendencies, 1800000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [user, patients]);
 
   useEffect(() => {
     const handleViewChange = (e: any) => setCurrentView(e.detail);
@@ -187,7 +222,7 @@ const App: React.FC = () => {
     }
   }, [collaborators, username, password, selectedRole]);
 
-  const handleUpdatePassword = useCallback((e: React.FormEvent) => {
+  const handleUpdatePassword = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (!/^\d+$/.test(newPassword)) { alert("A senha deve conter apenas números."); return; }
     if (newPassword.length > 6) { alert("A nova senha deve ter no máximo 6 dígitos."); return; }
@@ -223,14 +258,21 @@ const App: React.FC = () => {
 
   const addPatient = useCallback(async (p: Partial<Patient>) => {
     const isUpa = p.status === 'Transferência UPA';
-    const isAutoTransfer = isUpa || p.status === 'Transferência Externa';
+    const isExternal = p.status === 'Transferência Externa';
+    const isAutoTransfer = isUpa || isExternal;
+    const now = new Date().toISOString();
+    
     const newP: Patient = {
       ...p as Patient,
       id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
+      createdAt: now,
       createdBy: `${user?.username} - ${user?.name}`,
       lastModifiedBy: `${user?.username} - ${user?.name}`,
       isTransferRequested: isAutoTransfer,
+      transferRequestedAt: isAutoTransfer ? now : undefined,
+      upaTransferRequestedAt: isUpa ? now : undefined,
+      externalTransferRequestedAt: isExternal ? now : undefined,
+      pendenciesResolvedAt: p.pendencies === 'Nenhuma' ? now : undefined,
       transferDestinationSector: isAutoTransfer ? p.status : undefined,
       transferDestinationBed: isUpa ? 'UPA' : (isAutoTransfer ? 'AGUARDANDO' : undefined),
       isTransferred: false,
@@ -242,10 +284,37 @@ const App: React.FC = () => {
 
   const updatePatient = useCallback(async (id: string, updates: Partial<Patient>) => {
     let updatedP: Patient | undefined;
+    const now = new Date().toISOString();
+    
     setPatients(prev => {
       const newList = prev.map(p => {
         if (p.id === id) {
-          updatedP = { ...p, ...updates, lastModifiedBy: `${user?.username} - ${user?.name}` };
+          const finalUpdates = { ...updates };
+          
+          // Monitoramento de Pendências
+          if (p.pendencies !== 'Nenhuma' && updates.pendencies === 'Nenhuma') {
+            finalUpdates.pendenciesResolvedAt = now;
+          }
+          
+          // Monitoramento de Solicitação de Transferência
+          if (!p.isTransferRequested && updates.isTransferRequested === true) {
+            finalUpdates.transferRequestedAt = now;
+          }
+          
+          // Monitoramento de UPA/Externa
+          if (p.status !== 'Transferência UPA' && updates.status === 'Transferência UPA') {
+            finalUpdates.upaTransferRequestedAt = now;
+          }
+          if (p.status !== 'Transferência Externa' && updates.status === 'Transferência Externa') {
+            finalUpdates.externalTransferRequestedAt = now;
+          }
+          
+          // Monitoramento de Conclusão
+          if (!p.isTransferred && updates.isTransferred === true) {
+            finalUpdates.transferredAt = now;
+          }
+
+          updatedP = { ...p, ...finalUpdates, lastModifiedBy: `${user?.username} - ${user?.name}` };
           return updatedP;
         }
         return p;
@@ -561,13 +630,18 @@ const App: React.FC = () => {
       case 'PENDENCIES': return <PendencyView patients={patients} onUpdatePatient={updatePatient} role={user?.role || 'tecnico'} />;
       case 'CLEAR_DATA': return <ClearDataView patients={patients} onDeletePatients={deletePatients} />;
       case 'COLLABORATORS': return <CollaboratorManager user={user!} collaborators={collaborators} onCancel={() => setCurrentView('MAIN_MENU')} onUpdate={async (newList) => {
-        // Sincronizar colaborador alterado
-        const changed = newList.find(nc => {
-          const old = collaborators.find(c => c.id === nc.id);
-          return !old || JSON.stringify(old) !== JSON.stringify(nc);
-        });
-        if (changed) await api.saveCollaborator(changed);
-        setCollaborators(newList);
+        try {
+          // Sincronizar colaborador alterado ou novo
+          const changed = newList.find(nc => {
+            const old = collaborators.find(c => c.id === nc.id);
+            return !old || JSON.stringify(old) !== JSON.stringify(nc);
+          });
+          if (changed) await api.saveCollaborator(changed);
+          setCollaborators(newList);
+        } catch (e) {
+          console.error("Erro ao salvar colaborador:", e);
+          alert("ERRO DE SINCRONIZAÇÃO: Não foi possível salvar os dados no servidor. Verifique sua conexão.");
+        }
       }} />;
       case 'ABOUT_APP': return <AboutView user={user!} onBack={() => setCurrentView('MAIN_MENU')} />;
       case 'NEW_PATIENT': return <PatientForm onSave={(p) => { if (scannedData && scannedData.id) { updatePatient(scannedData.id, p); setScannedData(null); setCurrentView('PATIENT_LIST'); } else { addPatient(p); } }} onCancel={() => { setScannedData(null); setCurrentView('MAIN_MENU'); }} initialData={scannedData || undefined} />;
@@ -580,6 +654,38 @@ const App: React.FC = () => {
   return (
     <Layout user={user!} currentView={currentView} selectedUnit={selectedUnit} onBack={() => setCurrentView('MAIN_MENU')} onLogout={handleLogout} title={currentView}>
       {renderContent()}
+      
+      {/* Notificação Flutuante de Pendências */}
+      {showPendencyReminder && (
+        <div className="fixed bottom-6 right-6 left-6 md:left-auto md:w-96 z-50 animate-in slide-in-from-bottom-10 duration-500">
+          <div 
+            onClick={() => {
+              setCurrentView('PENDENCIES');
+              setShowPendencyReminder(false);
+            }}
+            className="bg-white border-2 border-amber-500 rounded-3xl shadow-2xl p-5 flex items-center gap-4 cursor-pointer hover:bg-amber-50 transition-all group"
+          >
+            <div className="bg-amber-100 p-3 rounded-2xl text-amber-600 group-hover:scale-110 transition-transform">
+              <Bell className="w-6 h-6 animate-bounce" />
+            </div>
+            <div className="flex-1">
+              <h4 className="text-xs font-black text-slate-800 uppercase tracking-tight">Lembrete de Pendências</h4>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">
+                Existem pacientes com pendências aguardando sua atenção.
+              </p>
+            </div>
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowPendencyReminder(false);
+              }}
+              className="p-2 text-slate-300 hover:text-slate-500"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 };

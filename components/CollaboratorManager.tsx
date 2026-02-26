@@ -97,8 +97,8 @@ const CollaboratorManager: React.FC<CollaboratorManagerProps> = ({ user, collabo
 
       {view === 'LIST' && (
         <div className="animate-in zoom-in duration-300">
-           <div className={`grid grid-cols-1 gap-4 ${isDev ? 'sm:grid-cols-2' : ''}`}>
-               {isDev && (
+           <div className={`grid grid-cols-1 gap-4 ${(isDev || isCoord) ? 'sm:grid-cols-2' : ''}`}>
+               {(isDev || isCoord) && (
                  <button onClick={() => setView('NEW')} className="bg-white p-8 rounded-[2.5rem] border-2 border-slate-100 shadow-sm hover:shadow-xl hover:border-blue-200 transition-all flex flex-col items-center group">
                     <div className="p-4 bg-blue-600 text-white rounded-3xl mb-4 group-hover:scale-110 transition-transform">
                        <UserPlus className="w-10 h-10" />
@@ -107,7 +107,7 @@ const CollaboratorManager: React.FC<CollaboratorManagerProps> = ({ user, collabo
                  </button>
                )}
                
-               <button onClick={() => setView('USERS_LIST')} className={`bg-white p-8 rounded-[2.5rem] border-2 border-slate-100 shadow-sm hover:shadow-xl hover:border-indigo-200 transition-all flex flex-col items-center group ${!isDev ? 'max-w-md mx-auto w-full' : ''}`}>
+               <button onClick={() => setView('USERS_LIST')} className={`bg-white p-8 rounded-[2.5rem] border-2 border-slate-100 shadow-sm hover:shadow-xl hover:border-indigo-200 transition-all flex flex-col items-center group ${!(isDev || isCoord) ? 'max-w-md mx-auto w-full' : ''}`}>
                   <div className={`p-4 rounded-3xl ${isNurse ? 'bg-emerald-600' : 'bg-indigo-600'} text-white mb-4 group-hover:scale-110 transition-transform`}>
                      {isNurse ? <UserSearch className="w-10 h-10" /> : <Users className="w-10 h-10" />}
                   </div>
@@ -119,7 +119,7 @@ const CollaboratorManager: React.FC<CollaboratorManagerProps> = ({ user, collabo
         </div>
       )}
 
-      {view === 'NEW' && isDev && (
+      {view === 'NEW' && (isDev || isCoord) && (
         <form onSubmit={handleCreate} className="bg-white p-8 rounded-[2.5rem] shadow-2xl border border-slate-200 max-w-xl mx-auto space-y-6 animate-in slide-in-from-right-4">
            <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">

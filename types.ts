@@ -20,7 +20,8 @@ export type AppView =
   | 'LEAN_LIST'
   | 'LEAN_NURSE_SUMMARY'
   | 'ABOUT_APP'
-  | 'CHANGE_PASSWORD';
+  | 'CHANGE_PASSWORD'
+  | 'SIGN_UP';
 
 export type Corridor = 'Corredor 1 | Principal' | 'Corredor 2 | Comanejo' | 'Corredor 3 | Raio-X' | 'Sala de Trauma';
 export type Specialty = 'Cirurgia Geral' | 'Neurologia' | 'Ortopedia' | 'Urologia' | 'Odontologia/Bucomaxilo' | 'Vascular' | 'Clínica Médica' | 'Outros';
@@ -73,6 +74,10 @@ export interface Patient {
   transferDestinationBed?: string;
   isTransferred: boolean;
   transferredAt?: string;
+  pendenciesResolvedAt?: string;
+  transferRequestedAt?: string;
+  upaTransferRequestedAt?: string;
+  externalTransferRequestedAt?: string;
   vitals?: VitalSigns;
   isNew?: boolean;
 }

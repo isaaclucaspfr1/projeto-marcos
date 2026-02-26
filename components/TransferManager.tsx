@@ -72,33 +72,104 @@ const TransferManager: React.FC<TransferManagerProps> = ({ role, patients, onUpd
     });
 
     const total = monthlyPatients.length;
+    
+    // Helper para calcular diferença em horas
+    const getDiffHours = (start?: string, end?: string) => {
+      if (!start || !end) return null;
+      const diff = new Date(end).getTime() - new Date(start).getTime();
+      return diff / (1000 * 60 * 60);
+    };
+
+    const finalized = monthlyPatients.filter(p => p.isTransferred);
+    
     const stats = {
       total,
       altas: monthlyPatients.filter(p => p.status === 'Alta').length,
       upa: monthlyPatients.filter(p => p.status === 'Transferência UPA').length,
       externo: monthlyPatients.filter(p => p.status === 'Transferência Externa').length,
-      pendencias: monthlyPatients.filter(p => p.pendencies !== 'Nenhuma').length
+      pendencias: monthlyPatients.filter(p => p.pendencies !== 'Nenhuma').length,
+      
+      // Médias de tempo (em horas)
+      avgPendencyTime: finalized.map(p => getDiffHours(p.createdAt, p.pendenciesResolvedAt)).filter(v => v !== null) as number[],
+      avgStretcherTime: finalized.map(p => getDiffHours(p.createdAt, p.transferRequestedAt)).filter(v => v !== null) as number[],
+      avgTransferTime: finalized.map(p => getDiffHours(p.transferRequestedAt, p.transferredAt)).filter(v => v !== null) as number[],
+      avgUpaTime: finalized.filter(p => p.status === 'Transferência UPA').map(p => getDiffHours(p.upaTransferRequestedAt, p.transferredAt)).filter(v => v !== null) as number[],
+      avgExternalTime: finalized.filter(p => p.status === 'Transferência Externa').map(p => getDiffHours(p.externalTransferRequestedAt, p.transferredAt)).filter(v => v !== null) as number[]
     };
 
-    const specs: Record<string, number> = {};
-    monthlyPatients.forEach(p => { specs[p.specialty] = (specs[p.specialty] || 0) + 1; });
-    const specialtyData = Object.entries(specs).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+    const getAvg = (arr: number[]) => arr.length > 0 ? (arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(1) : '0';
 
-    return { ...stats, specialtyData };
+    const specs: Record<string, { count: number, pendencyTime: number[] }> = {};
+    monthlyPatients.forEach(p => { 
+      if (!specs[p.specialty]) specs[p.specialty] = { count: 0, pendencyTime: [] };
+      specs[p.specialty].count++;
+      const pTime = getDiffHours(p.createdAt, p.pendenciesResolvedAt);
+      if (pTime !== null) specs[p.specialty].pendencyTime.push(pTime);
+    });
+
+    const specialtyData = Object.entries(specs).map(([name, data]) => ({ 
+      name, 
+      value: data.count,
+      avgPendency: getAvg(data.pendencyTime)
+    })).sort((a, b) => b.value - a.value);
+
+    // Dados por tipo de pendência
+    const pendencyStats: Record<string, { count: number, resolveTime: number[] }> = {};
+    monthlyPatients.forEach(p => {
+      if (p.pendencies !== 'Nenhuma') {
+        if (!pendencyStats[p.pendencies]) pendencyStats[p.pendencies] = { count: 0, resolveTime: [] };
+        pendencyStats[p.pendencies].count++;
+        const rTime = getDiffHours(p.createdAt, p.pendenciesResolvedAt);
+        if (rTime !== null) pendencyStats[p.pendencies].resolveTime.push(rTime);
+      }
+    });
+
+    return { 
+      ...stats, 
+      specialtyData, 
+      pendencyData: Object.entries(pendencyStats).map(([name, d]) => ({ name, count: d.count, avg: getAvg(d.resolveTime) })),
+      averages: {
+        pendency: getAvg(stats.avgPendencyTime),
+        stretcher: getAvg(stats.avgStretcherTime),
+        transfer: getAvg(stats.avgTransferTime),
+        upa: getAvg(stats.avgUpaTime),
+        external: getAvg(stats.avgExternalTime)
+      }
+    };
   }, [selectedReportMonth, patients]);
 
   const generateMonthlyAnalysis = async (stats: any, month: string) => {
     setIsGeneratingAi(true);
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const prompt = `Analise os dados assistenciais do mês de ${month} para coordenação hospitalar:
-      INDICADORES:
-      - Atendimentos Totais: ${stats.total}
-      - Altas Confirmadas: ${stats.altas}
-      - Transferências Externas/UPA: ${stats.upa + stats.externo}
-      - Taxa de Pendências: ${stats.pendencias}
+      const prompt = `Gere um relatório gerencial detalhado para o mês de ${month} baseado nos seguintes indicadores de performance hospitalar:
+
+      DADOS GERAIS:
+      - Total de Pacientes: ${stats.total}
+      - Altas: ${stats.altas}
+      - Transferências UPA: ${stats.upa}
+      - Transferências Externas: ${stats.externo}
+
+      INDICADORES DE TEMPO (MÉDIAS EM HORAS):
+      - Resolução de Pendências: ${stats.averages.pendency}h
+      - Tempo na Maca até Solicitação: ${stats.averages.stretcher}h
+      - Conclusão de Transferência Interna: ${stats.averages.transfer}h
+      - Conclusão de Transferência UPA: ${stats.averages.upa}h
+      - Conclusão de Transferência Externa: ${stats.averages.external}h
+
+      DESEMPENHO POR ESPECIALIDADE:
+      ${stats.specialtyData.map((s: any) => `- ${s.name}: ${s.value} pacientes (Média Pendência: ${s.avg}h)`).join('\n')}
+
+      ANÁLISE DE PENDÊNCIAS:
+      ${stats.pendencyData.map((p: any) => `- ${p.name}: ${p.count} casos (Média Resolução: ${p.avg}h)`).join('\n')}
+
+      REQUISITOS DO RELATÓRIO:
+      1. Identifique os principais gargalos operacionais.
+      2. Compare o desempenho das especialidades.
+      3. Sugira melhorias específicas para reduzir o tempo de permanência na maca.
+      4. Analise o impacto das pendências no giro de leito.
       
-      Gere um parecer técnico curto (um parágrafo) focado em eficiência e giro de leito.`;
+      Escreva em tom profissional, técnico e propositivo.`;
 
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
@@ -229,9 +300,9 @@ const TransferManager: React.FC<TransferManagerProps> = ({ role, patients, onUpd
           <div className="grid grid-cols-4 gap-4 mb-8">
              {[
                { label: 'Total Fluxo', val: monthlyStats.total },
-               { label: 'Altas Confirmadas', val: monthlyStats.altas },
-               { label: 'Transf. UPA', val: monthlyStats.upa },
-               { label: 'Transf. Externas', val: monthlyStats.externo }
+               { label: 'Altas', val: monthlyStats.altas },
+               { label: 'Média Pendência', val: monthlyStats.averages.pendency + 'h' },
+               { label: 'Média Maca', val: monthlyStats.averages.stretcher + 'h' }
              ].map(card => (
                <div key={card.label} className="p-card p-6 rounded-[1.5rem] text-center">
                   <p className="text-[8px] font-black text-slate-500 uppercase mb-1">{card.label}</p>
@@ -240,37 +311,47 @@ const TransferManager: React.FC<TransferManagerProps> = ({ role, patients, onUpd
              ))}
           </div>
 
+          <div className="grid grid-cols-3 gap-4 mb-8">
+             {[
+               { label: 'Média Transf. Interna', val: monthlyStats.averages.transfer + 'h' },
+               { label: 'Média Transf. UPA', val: monthlyStats.averages.upa + 'h' },
+               { label: 'Média Transf. Externa', val: monthlyStats.averages.external + 'h' }
+             ].map(card => (
+               <div key={card.label} className="p-card p-4 rounded-[1.5rem] text-center border-blue-100">
+                  <p className="text-[7px] font-black text-slate-500 uppercase mb-1">{card.label}</p>
+                  <h3 className="text-lg font-black text-indigo-900">{card.val}</h3>
+               </div>
+             ))}
+          </div>
+
           <div className="grid grid-cols-2 gap-8 mb-8">
              <div className="border border-slate-200 rounded-[2.5rem] p-8 bg-slate-50/20">
                 <h4 className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-6">Demanda por Especialidade</h4>
                 <div className="space-y-2">
-                   {monthlyStats.specialtyData.slice(0, 10).map(s => (
+                   {monthlyStats.specialtyData.slice(0, 8).map(s => (
                      <div key={s.name} className="flex justify-between items-center text-[10px] font-bold border-b border-slate-100 pb-2">
                         <span className="text-slate-600 uppercase">{s.name}</span>
-                        <span className="text-blue-900 font-black">{s.value}</span>
+                        <div className="text-right">
+                          <span className="text-blue-900 font-black">{s.value} pac.</span>
+                          <span className="text-slate-400 ml-2">({s.avg}h pend.)</span>
+                        </div>
                      </div>
                    ))}
                 </div>
              </div>
 
-             <div className="border border-slate-200 rounded-[2.5rem] p-8 bg-slate-50/20 flex flex-col justify-center gap-6">
-                <div className="flex items-center gap-6">
-                   <div className="w-16 h-16 bg-emerald-100 rounded-3xl flex items-center justify-center text-emerald-700 font-black text-xl">
-                      {((monthlyStats.altas / monthlyStats.total) * 100 || 0).toFixed(0)}%
-                   </div>
-                   <div>
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Taxa de Desfecho</p>
-                      <p className="text-[11px] font-black text-slate-800 uppercase">Eficiência Assistencial</p>
-                   </div>
-                </div>
-                <div className="flex items-center gap-6">
-                   <div className="w-16 h-16 bg-amber-100 rounded-3xl flex items-center justify-center text-amber-700 font-black text-xl">
-                      {((monthlyStats.pendencias / monthlyStats.total) * 100 || 0).toFixed(0)}%
-                   </div>
-                   <div>
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Impacto Gargalo</p>
-                      <p className="text-[11px] font-black text-slate-800 uppercase">Incidência de Pendências</p>
-                   </div>
+             <div className="border border-slate-200 rounded-[2.5rem] p-8 bg-slate-50/20">
+                <h4 className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-6">Análise de Pendências</h4>
+                <div className="space-y-2">
+                   {monthlyStats.pendencyData.slice(0, 8).map(p => (
+                     <div key={p.name} className="flex justify-between items-center text-[10px] font-bold border-b border-slate-100 pb-2">
+                        <span className="text-slate-600 uppercase truncate max-w-[150px]">{p.name}</span>
+                        <div className="text-right">
+                          <span className="text-amber-700 font-black">{p.count} casos</span>
+                          <span className="text-slate-400 ml-2">({p.avg}h res.)</span>
+                        </div>
+                     </div>
+                   ))}
                 </div>
              </div>
           </div>
