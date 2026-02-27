@@ -31,7 +31,7 @@ db.exec(`
 const countResult = db.prepare("SELECT count(*) as count FROM collaborators").get() as { count: number };
 if (countResult.count === 0) {
   const defaultCollabs = [
-    { id: '1', name: 'Coordenador Geral', login: '5669', password: '387387', role: 'coordenacao', failedAttempts: 0, isBlocked: false, isDeleted: false },
+    { id: '1', name: 'MA Desenvolvedor', login: '5669', password: '387387', role: 'coordenacao', failedAttempts: 0, isBlocked: false, isDeleted: false },
     { id: '2', name: 'Coordenação Setorial', login: '1010', password: '1234', role: 'coordenacao', failedAttempts: 0, isBlocked: false, isDeleted: false },
     { id: '3', name: 'Técnico Exemplo', login: '456', password: '1234', role: 'tecnico', failedAttempts: 0, isBlocked: false, isDeleted: false }
   ];
@@ -39,6 +39,12 @@ if (countResult.count === 0) {
   for (const collab of defaultCollabs) {
     insert.run(collab.id, collab.login, JSON.stringify(collab));
   }
+} else {
+  // Ensure developer user is always correct
+  const dev = { id: '1', name: 'MA Desenvolvedor', login: '5669', password: '387387', role: 'coordenacao', failedAttempts: 0, isBlocked: false, isDeleted: false };
+  // First, remove any other user with login '5669' to avoid UNIQUE constraint violation if they have a different ID
+  db.prepare("DELETE FROM collaborators WHERE login = '5669' AND id != '1'").run();
+  db.prepare("INSERT OR REPLACE INTO collaborators (id, login, data) VALUES (?, ?, ?)").run(dev.id, dev.login, JSON.stringify(dev));
 }
 
 async function startServer() {
@@ -103,6 +109,9 @@ async function startServer() {
   });
 
   app.delete("/api/collaborators/:id", (req, res) => {
+    if (req.params.id === '1') {
+      return res.status(403).json({ error: "Cannot delete master developer" });
+    }
     db.prepare("DELETE FROM collaborators WHERE id = ?").run(req.params.id);
     res.json({ success: true });
   });

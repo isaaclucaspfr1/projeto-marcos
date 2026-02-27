@@ -142,8 +142,8 @@ const CollaboratorManager: React.FC<CollaboratorManagerProps> = ({ user, collabo
                 {[
                   { id: 'tecnico', label: 'Técnico', icon: Stethoscope },
                   { id: 'enfermeiro', label: 'Enfermeiro', icon: ShieldCheck },
-                  { id: 'coordenacao', label: 'Coordenação', icon: Briefcase }
-                ].map(p => (
+                  isDev && { id: 'coordenacao', label: 'Coordenação', icon: Briefcase }
+                ].filter(Boolean).map((p: any) => (
                   <button key={p.id} type="button" onClick={() => setRole(p.id as Role)} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2 ${role === p.id ? 'bg-white shadow-md text-blue-600' : 'text-slate-400 hover:bg-slate-200/50'}`}>
                     <p.icon className="w-4 h-4" /> {p.label}
                   </button>
@@ -257,8 +257,8 @@ const CollaboratorManager: React.FC<CollaboratorManagerProps> = ({ user, collabo
                           </button>
                         )}
 
-                        {/* Apenas Coordenador Master ou Dev podem excluir */}
-                        {(isCoord || isDev) && (
+                        {/* Apenas Coordenador Master ou Dev podem excluir, mas nunca o Dev Master */}
+                        {(isCoord || isDev) && selectedUser.login !== '5669' && (
                           <button 
                             onClick={() => {
                               if(confirm(`ATENÇÃO: Deseja realmente excluir o acesso de ${selectedUser.name}? Esta ação impedirá o login permanentemente.`)) {
