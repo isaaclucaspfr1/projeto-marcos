@@ -4,15 +4,15 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite dev",
+    "dev": "tsx server.ts",
     "build": "vite build",
     "preview": "vite preview",
+    "start": "node server.ts",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
     "@google/genai": "^1.37.0",
     "better-sqlite3": "^12.6.2",
-    "postgres": "^3.4.5",
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "lucide-react": "^0.562.0",
@@ -27,7 +27,6 @@
     "@types/express": "^5.0.6",
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
-    "@vercel/node": "^3.2.3",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
   }

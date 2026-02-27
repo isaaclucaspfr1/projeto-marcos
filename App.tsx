@@ -50,20 +50,17 @@ const MALogo = React.memo(({ size = "w-14 h-14" }: { size?: string }) => (
   </div>
 ));
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? '';
-const withBase = (path: string) => `${API_BASE}${path}`;
-
 const api = {
-  getPatients: () => fetch(withBase('/api/patients')).then(r => r.json()),
-  savePatient: (p: Patient) => fetch(withBase('/api/patients'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p) }),
-  deletePatient: (id: string) => fetch(withBase(`/api/patients/${id}`), { method: 'DELETE' }),
-  bulkDeletePatients: (ids: string[]) => fetch(withBase('/api/patients/bulk-delete'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) }),
-  getLeanPatients: () => fetch(withBase('/api/lean-patients')).then(r => r.json()),
-  saveLeanPatient: (p: LeanPatient) => fetch(withBase('/api/lean-patients'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p) }),
-  deleteLeanPatient: (id: string) => fetch(withBase(`/api/lean-patients/${id}`), { method: 'DELETE' }),
-  getCollaborators: () => fetch(withBase('/api/collaborators')).then(r => r.json()),
-  saveCollaborator: (c: Collaborator) => fetch(withBase('/api/collaborators'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(c) }),
-  deleteCollaborator: (id: string) => fetch(withBase(`/api/collaborators/${id}`), { method: 'DELETE' }),
+  getPatients: () => fetch('/api/patients').then(r => r.json()),
+  savePatient: (p: Patient) => fetch('/api/patients', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p) }),
+  deletePatient: (id: string) => fetch(`/api/patients/${id}`, { method: 'DELETE' }),
+  bulkDeletePatients: (ids: string[]) => fetch('/api/patients/bulk-delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) }),
+  getLeanPatients: () => fetch('/api/lean-patients').then(r => r.json()),
+  saveLeanPatient: (p: LeanPatient) => fetch('/api/lean-patients', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p) }),
+  deleteLeanPatient: (id: string) => fetch(`/api/lean-patients/${id}`, { method: 'DELETE' }),
+  getCollaborators: () => fetch('/api/collaborators').then(r => r.json()),
+  saveCollaborator: (c: Collaborator) => fetch('/api/collaborators', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(c) }),
+  deleteCollaborator: (id: string) => fetch(`/api/collaborators/${id}`, { method: 'DELETE' }),
 };
 
 const App: React.FC = () => {
