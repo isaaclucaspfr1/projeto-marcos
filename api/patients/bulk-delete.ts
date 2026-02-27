@@ -10,11 +10,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const sql = getSql();
   await ensureSchema(sql);
 
-  await sql.begin(async (trx) => {
-    for (const id of ids) {
-      await trx`DELETE FROM patients WHERE id = ${id}`;
-    }
-  });
+  // Delete in one statement for speed and type-safety
+  await sql`DELETE FROM patients WHERE id = ANY(${sql.array(ids, 'text')})`;
 
   return res.status(200).json({ success: true });
 }
