@@ -1,6 +1,10 @@
 {
   "functions": {
-    "api/**/*.{ts,js}": {
+    "api/**/*.ts": {
+      "runtime": "nodejs20.x",
+      "includeFiles": "api/_db.js"
+    },
+    "api/**/*.js": {
       "runtime": "nodejs20.x",
       "includeFiles": "api/_db.js"
     }
