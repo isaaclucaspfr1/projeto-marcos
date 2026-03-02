@@ -1,0 +1,10 @@
+{
+  "version": 3,
+  "buildCommand": "npm run build",
+  "devCommand": "vite dev",
+  "outputDirectory": "dist",
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/index.ts" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
