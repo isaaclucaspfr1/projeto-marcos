@@ -242,7 +242,7 @@ const PatientForm: React.FC<PatientFormProps> = ({ onSave, onCancel, initialData
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Status</label>
                 <select className="w-full px-5 py-4 bg-slate-50 border border-blue-900 rounded-2xl font-black text-blue-700 outline-none focus:ring-2 focus:ring-blue-500" value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value as PatientStatus })}>
-                  {PATIENT_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                  {PATIENT_STATUSES.filter(s => !['Reavaliação', 'Transferência UPA', 'Transferência Externa'].includes(s)).map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               <div className="space-y-1">

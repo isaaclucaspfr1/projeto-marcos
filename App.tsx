@@ -35,8 +35,11 @@ import {
   Stethoscope,
   Sparkles,
   Bell,
-  X
+  X,
+  Wifi,
+  WifiOff
 } from 'lucide-react';
+import { io, Socket } from 'socket.io-client';
 
 const MALogo = React.memo(({ size = "w-14 h-14" }: { size?: string }) => (
   <div className={`flex flex-col items-center justify-center ${size} group`}>
@@ -85,6 +88,7 @@ const App: React.FC = () => {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [leanPatients, setLeanPatients] = useState<LeanPatient[]>([]);
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
+  const [isConnected, setIsConnected] = useState(false);
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -92,6 +96,64 @@ const App: React.FC = () => {
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const [showPendencyReminder, setShowPendencyReminder] = useState(false);
   const hasCheckedOnLogin = React.useRef(false);
+
+  // Configuração do Socket.io
+  useEffect(() => {
+    const socket: Socket = io();
+
+    socket.on('connect', () => setIsConnected(true));
+    socket.on('disconnect', () => setIsConnected(false));
+
+    socket.on('patient_updated', (updatedPatient: Patient) => {
+      setPatients(prev => {
+        const exists = prev.some(p => p.id === updatedPatient.id);
+        if (exists) {
+          return prev.map(p => p.id === updatedPatient.id ? updatedPatient : p).sort((a, b) => a.name.localeCompare(b.name));
+        }
+        return [updatedPatient, ...prev].sort((a, b) => a.name.localeCompare(b.name));
+      });
+    });
+
+    socket.on('patient_deleted', (id: string) => {
+      setPatients(prev => prev.filter(p => p.id !== id));
+    });
+
+    socket.on('patients_bulk_deleted', (ids: string[]) => {
+      setPatients(prev => prev.filter(p => !ids.includes(p.id)));
+    });
+
+    socket.on('lean_patient_updated', (updatedPatient: LeanPatient) => {
+      setLeanPatients(prev => {
+        const exists = prev.some(p => p.id === updatedPatient.id);
+        if (exists) {
+          return prev.map(p => p.id === updatedPatient.id ? updatedPatient : p);
+        }
+        return [...prev, updatedPatient];
+      });
+    });
+
+    socket.on('lean_patient_deleted', (id: string) => {
+      setLeanPatients(prev => prev.filter(p => p.id !== id));
+    });
+
+    socket.on('collaborator_updated', (updatedCollab: Collaborator) => {
+      setCollaborators(prev => {
+        const exists = prev.some(c => c.id === updatedCollab.id);
+        if (exists) {
+          return prev.map(c => c.id === updatedCollab.id ? updatedCollab : c);
+        }
+        return [...prev, updatedCollab];
+      });
+    });
+
+    socket.on('collaborator_deleted', (id: string) => {
+      setCollaborators(prev => prev.filter(c => c.id !== id));
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
 
   // Carregar dados iniciais do banco de dados
   useEffect(() => {
@@ -246,6 +308,7 @@ const App: React.FC = () => {
       createdAt: now,
       createdBy: `${user?.username} - ${user?.name}`,
       lastModifiedBy: `${user?.username} - ${user?.name}`,
+      lastModifiedAt: now,
       isTransferRequested: isAutoTransfer,
       transferRequestedAt: isAutoTransfer ? now : undefined,
       upaTransferRequestedAt: isUpa ? now : undefined,
@@ -292,7 +355,12 @@ const App: React.FC = () => {
             finalUpdates.transferredAt = now;
           }
 
-          updatedP = { ...p, ...finalUpdates, lastModifiedBy: `${user?.username} - ${user?.name}` };
+          updatedP = { 
+            ...p, 
+            ...finalUpdates, 
+            lastModifiedBy: `${user?.username} - ${user?.name}`,
+            lastModifiedAt: now
+          };
           return updatedP;
         }
         return p;
@@ -307,7 +375,12 @@ const App: React.FC = () => {
     setPatients(prev => {
       const newList = prev.map(p => {
         if (ids.includes(p.id)) {
-          const newP = { ...p, ...updates, lastModifiedBy: `${user?.username} - ${user?.name}` };
+          const newP = { 
+            ...p, 
+            ...updates, 
+            lastModifiedBy: `${user?.username} - ${user?.name}`,
+            lastModifiedAt: new Date().toISOString()
+          };
           updatedList.push(newP);
           return newP;
         }
@@ -327,7 +400,7 @@ const App: React.FC = () => {
     switch (currentView) {
       case 'MAIN_MENU':
         const btnBase = "flex flex-col items-center justify-center p-4 bg-white rounded-2xl border-2 border-slate-900 shadow-sm hover:shadow-md transition-all active:scale-95 group h-32 relative text-center";
-        const pendencyCount = patients.filter(p => !p.isTransferred && (p.pendencies !== 'Nenhuma' || !p.hasBracelet || !p.hasBedIdentification)).length;
+        const pendencyCount = patients.filter(p => !p.isTransferred && (p.pendencies !== 'Nenhuma' || !p.hasBracelet || !p.hasBedIdentification || p.status === 'Alta' || p.status === 'Reavaliação')).length;
         const transferRequestCount = patients.filter(p => p.isTransferRequested && !p.isTransferred).length;
         const newPatientsCount = patients.filter(p => p.isNew && !p.isTransferred).length;
 
@@ -392,9 +465,7 @@ const App: React.FC = () => {
           equipes: (
             <button key="equipes" onClick={() => setCurrentView('COLLABORATORS')} className={btnBase}>
               <UserCog className="w-8 h-8 text-slate-800 mb-2" />
-              <span className="text-xs font-bold text-slate-700">
-                {user?.role === 'coordenacao' ? 'Usuários' : (user?.role === 'enfermeiro' ? 'Consultar Usuários' : 'Equipe')}
-              </span>
+              <span className="text-xs font-bold text-slate-700">Usuários</span>
             </button>
           ),
           leanMonitoramento: (
@@ -542,8 +613,14 @@ const App: React.FC = () => {
         );
 
       case 'LEAN_CADASTRO': return <LeanPatientForm onSave={async (p) => { 
-        setLeanPatients(prev => [...prev, p]); 
-        await api.saveLeanPatient(p);
+        const now = new Date().toISOString();
+        const enrichedP = {
+          ...p,
+          lastModifiedBy: `${user?.username} - ${user?.name}`,
+          lastModifiedAt: now
+        };
+        setLeanPatients(prev => [...prev, enrichedP]); 
+        await api.saveLeanPatient(enrichedP);
         setCurrentView('LEAN_LIST'); 
       }} onCancel={() => setCurrentView('LEAN_MENU')} />;
       case 'LEAN_LIST': return <LeanPatientList patients={leanPatients} onUpdate={async (newList) => {
@@ -558,7 +635,16 @@ const App: React.FC = () => {
             const old = leanPatients.find(p => p.id === np.id);
             return !old || JSON.stringify(old) !== JSON.stringify(np);
           });
-          if (changed) await api.saveLeanPatient(changed);
+          if (changed) {
+            const enrichedChanged = {
+              ...changed,
+              lastModifiedBy: `${user?.username} - ${user?.name}`,
+              lastModifiedAt: new Date().toISOString()
+            };
+            await api.saveLeanPatient(enrichedChanged);
+            setLeanPatients(newList.map(p => p.id === enrichedChanged.id ? enrichedChanged : p));
+            return;
+          }
         }
         setLeanPatients(newList);
       }} onCancel={() => setCurrentView('LEAN_MENU')} />;
@@ -631,6 +717,21 @@ const App: React.FC = () => {
 
   return (
     <Layout user={user!} currentView={currentView} selectedUnit={selectedUnit} onBack={() => setCurrentView('MAIN_MENU')} onLogout={handleLogout} title={currentView}>
+      {/* Indicador de Conexão */}
+      <div className="fixed top-4 right-4 z-[60] flex items-center gap-2 bg-white/80 backdrop-blur-sm px-3 py-1.5 rounded-full border border-slate-200 shadow-sm">
+        {isConnected ? (
+          <>
+            <Wifi className="w-3 h-3 text-emerald-500" />
+            <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">Sincronizado</span>
+          </>
+        ) : (
+          <>
+            <WifiOff className="w-3 h-3 text-red-500 animate-pulse" />
+            <span className="text-[9px] font-black text-red-600 uppercase tracking-widest">Desconectado</span>
+          </>
+        )}
+      </div>
+
       {renderContent()}
       
       {/* Notificação Flutuante de Pendências */}

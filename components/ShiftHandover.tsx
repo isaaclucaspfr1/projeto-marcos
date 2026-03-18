@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Patient, Corridor } from '../types';
 import { CORRIDORS } from '../constants';
 import { GoogleGenAI } from "@google/genai";
+import ReactMarkdown from 'react-markdown';
 import { Send, Loader2, Sparkles, Printer, ClipboardList, ChevronRight, Activity, Stethoscope } from 'lucide-react';
 
 interface ShiftHandoverProps {
@@ -22,8 +23,11 @@ const ShiftHandover: React.FC<ShiftHandoverProps> = ({ patients }) => {
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const prompt = `Gere um relatório formal e técnico de Passagem de Plantão de Enfermagem para os seguintes pacientes do ${selectedCorridor}. 
+      
+      IMPORTANTE: Use formatação Markdown (títulos ##, listas -, negrito **) para clareza.
       Agrupe por gravidade e destaque pendências críticas (exames, dietas suspensas, falta de pulseira). 
       Seja conciso mas profissional.
+      
       Dados: ${JSON.stringify(corridorPatients.map(p => ({
         nome: p.name,
         idade: p.age,
@@ -99,8 +103,8 @@ const ShiftHandover: React.FC<ShiftHandoverProps> = ({ patients }) => {
               </button>
            </div>
            <div className="p-8 md:p-12">
-              <div className="prose prose-slate max-w-none whitespace-pre-wrap font-medium text-slate-700 leading-relaxed text-sm">
-                 {summary}
+              <div className="markdown-content max-w-none font-medium text-slate-700 leading-relaxed text-sm">
+                 <ReactMarkdown>{summary}</ReactMarkdown>
               </div>
            </div>
            <div className="p-6 bg-slate-50 border-t flex justify-center no-print">
@@ -112,46 +116,114 @@ const ShiftHandover: React.FC<ShiftHandoverProps> = ({ patients }) => {
       )}
 
       {/* Versão para Impressão Padronizada */}
-      <div className="hidden print:block bg-white text-slate-900 p-0 font-sans" style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '15mm' }}>
+      <div className="hidden print:block bg-white text-slate-900 font-sans">
          <style>{`
-           @page { size: A4; margin: 0; }
-           body { background: white !important; -webkit-print-color-adjust: exact; }
-           .print-header { border-bottom: 4px solid #0f172a; padding-bottom: 15px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end; }
-           .print-title { color: #1e3a8a; font-size: 36px; font-weight: 900; text-transform: uppercase; line-height: 1; letter-spacing: -1px; }
-           .print-footer { border-top: 2px solid #e2e8f0; padding-top: 15px; margin-top: 40px; display: flex; justify-content: space-between; align-items: center; }
+           @page { 
+             size: A4; 
+             margin: 20mm; 
+           }
+           @media print {
+             body { background: white !important; -webkit-print-color-adjust: exact; }
+             .no-print { display: none !important; }
+             
+             .print-header {
+               position: fixed;
+               top: 0;
+               left: 0;
+               right: 0;
+               height: 25mm;
+               display: flex;
+               justify-content: space-between;
+               align-items: center;
+               border-bottom: 2px solid #e2e8f0;
+               background: white;
+             }
+             .print-footer {
+               position: fixed;
+               bottom: 0;
+               left: 0;
+               right: 0;
+               height: 15mm;
+               display: flex;
+               justify-content: space-between;
+               align-items: center;
+               border-top: 1px solid #e2e8f0;
+               background: white;
+               font-size: 10px;
+               color: #64748b;
+             }
+             
+             .print-table {
+               width: 100%;
+               border-collapse: collapse;
+             }
+             .print-table-header-space { height: 30mm; }
+             .print-table-footer-space { height: 20mm; }
+             
+             .page-number:after {
+               content: "Página " counter(page);
+             }
+           }
+
+           .print-title-small { color: #1e3a8a; font-size: 24px; font-weight: 900; text-transform: uppercase; }
+           .markdown-content h2 { font-size: 14px; font-weight: 900; text-transform: uppercase; margin-top: 15px; margin-bottom: 8px; color: #1e3a8a; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
+           .markdown-content h3 { font-size: 12px; font-weight: 800; text-transform: uppercase; margin-top: 12px; margin-bottom: 6px; color: #475569; }
+           .markdown-content p { margin-bottom: 8px; font-size: 12px; line-height: 1.5; }
+           .markdown-content ul { margin-bottom: 10px; padding-left: 15px; list-style-type: disc; }
+           .markdown-content li { margin-bottom: 4px; font-size: 12px; }
+           .markdown-content strong { color: #0f172a; font-weight: 800; }
          `}</style>
 
-         <div className="print-header">
-            <div className="flex items-center gap-4">
-               <Activity className="w-14 h-14 text-[#1e3a8a]" />
-               <h1 className="print-title">HospFlow</h1>
+         <table className="print-table">
+            <thead>
+               <tr>
+                  <td>
+                     <div className="print-table-header-space"></div>
+                  </td>
+               </tr>
+            </thead>
+            <tbody>
+               <tr>
+                  <td>
+                     <div className="print-content">
+                        <div className="markdown-content text-slate-800">
+                           <ReactMarkdown>{summary}</ReactMarkdown>
+                        </div>
+                     </div>
+                  </td>
+               </tr>
+            </tbody>
+            <tfoot>
+               <tr>
+                  <td>
+                     <div className="print-table-footer-space"></div>
+                  </td>
+               </tr>
+            </tfoot>
+         </table>
+
+         {/* Fixed Header */}
+         <div className="print-header no-print-screen">
+            <div className="flex items-center gap-3">
+               <Activity className="w-10 h-10 text-[#1e3a8a]" />
+               <h1 className="print-title-small">HospFlow</h1>
             </div>
             <div className="text-right">
-               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Passagem de Plantão Inteligente</p>
-               <p className="font-bold text-sm text-slate-900">{selectedCorridor} • {new Date().toLocaleString('pt-BR')}</p>
+               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Passagem de Plantão Inteligente</p>
+               <p className="font-bold text-xs text-slate-900">{selectedCorridor} • {new Date().toLocaleDateString('pt-BR')}</p>
             </div>
          </div>
 
-         <div className="whitespace-pre-wrap text-sm leading-loose text-slate-800 font-medium bg-slate-50 p-8 rounded-[2rem] border border-slate-100 min-h-[150mm]">
-            {summary}
-         </div>
-
-         <footer className="print-footer">
-            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+         {/* Fixed Footer */}
+         <div className="print-footer no-print-screen">
+            <div className="font-black uppercase tracking-widest">
                HospFlow • Continuidade da Assistência
             </div>
-            <div className="flex items-center gap-2">
-               <div className="flex flex-col items-center justify-center w-10 h-10">
-                 <div className="relative">
-                   <Stethoscope className="w-7 h-7 text-emerald-600" />
-                   <div className="absolute -top-1 -right-1">
-                     <Sparkles className="w-3 h-3 text-yellow-500 fill-yellow-500" />
-                   </div>
-                 </div>
-                 <span className="text-[7px] font-black text-slate-900 mt-0.5">MA</span>
-               </div>
+            <div className="flex items-center gap-4">
+               <span className="font-bold">{new Date().toLocaleDateString('pt-BR')}</span>
+               <span className="page-number font-black"></span>
             </div>
-         </footer>
+         </div>
       </div>
     </div>
   );

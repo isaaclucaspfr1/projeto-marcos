@@ -26,8 +26,8 @@ export type AppView =
 export type Corridor = 'Corredor 1 | Principal' | 'Corredor 2 | Comanejo' | 'Corredor 3 | Raio-X' | 'Sala de Trauma';
 export type Specialty = 'Cirurgia Geral' | 'Neurologia' | 'Ortopedia' | 'Urologia' | 'Odontologia/Bucomaxilo' | 'Vascular' | 'Clínica Médica' | 'Outros';
 export type LeanSpecialty = 'Cirurgia Geral' | 'Neurologia' | 'Ortopedia' | 'Dentista/Bucomaxilo' | 'Vascular';
-export type PatientStatus = 'Internado' | 'Observação' | 'Reavaliação' | 'Alta' | 'Transferência UPA' | 'Transferência Externa';
-export type PendencyType = 'Nenhuma' | 'Sem prescrição médica' | 'Sem dieta' | 'Aguardando exames laboratoriais' | 'Aguardando Tomografia' | 'Aguardando Raio-X' | 'Aguardando Ultrassom' | 'Exames realizados, aguardando resultado' | 'Aguardando Assistente Social';
+export type PatientStatus = 'Internado' | 'Observação' | 'Reavaliação' | 'Alta' | 'Transferência UPA' | 'Transferência Externa' | 'Evasão' | 'Transferido';
+export type PendencyType = 'Nenhuma' | 'Sem prescrição médica' | 'Sem dieta' | 'Aguardando exames laboratoriais' | 'Aguardando Tomografia' | 'Aguardando Raio-X' | 'Aguardando Ultrassom' | 'Exames realizados, aguardando resultado' | 'Aguardando Assistente Social' | 'Reavaliação médica' | 'Transferência UPA' | 'Transferência Externo';
 export type DietType = 'Sem prescrição' | 'Suspensa' | 'Livre' | 'Pastosa' | 'Branda' | 'Líquida' | 'Laxativa' | 'DM' | 'HAS';
 
 export interface VitalSigns {
@@ -64,6 +64,7 @@ export interface Patient {
   createdAt: string;
   createdBy: string;
   lastModifiedBy: string;
+  lastModifiedAt?: string;
   hasBracelet: boolean;
   hasBedIdentification: boolean;
   situation: 'Maca' | 'Cadeira';
@@ -100,6 +101,8 @@ export interface LeanPatient {
   dischargeTime?: string;
   hospitalizationTime?: string;
   createdAt: string;
+  lastModifiedBy?: string;
+  lastModifiedAt?: string;
 }
 
 export interface User {

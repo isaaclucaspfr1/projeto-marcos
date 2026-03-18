@@ -33,7 +33,8 @@ export const PATIENT_STATUSES: PatientStatus[] = [
   'Reavaliação',
   'Alta',
   'Transferência UPA',
-  'Transferência Externa'
+  'Transferência Externa',
+  'Evasão'
 ];
 
 export const PENDENCIES: PendencyType[] = [
@@ -45,7 +46,10 @@ export const PENDENCIES: PendencyType[] = [
   'Aguardando Raio-X',
   'Aguardando Ultrassom',
   'Exames realizados, aguardando resultado',
-  'Aguardando Assistente Social'
+  'Aguardando Assistente Social',
+  'Reavaliação médica',
+  'Transferência UPA',
+  'Transferência Externo'
 ];
 
 export const DIETS: DietType[] = [

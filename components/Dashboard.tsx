@@ -231,113 +231,182 @@ const Dashboard: React.FC<DashboardProps> = ({ patients, role }) => {
       </div>
 
       {/* Relatório Impresso Padronizado (HospFlow Estilo Consolidado) */}
-      <div className="hidden print:block bg-white text-slate-900 p-0 font-sans" style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '15mm' }}>
+      <div className="hidden print:block bg-white text-slate-900 font-sans">
         <style>{`
-          @page { size: A4; margin: 0; }
-          body { background: white !important; -webkit-print-color-adjust: exact; }
-          .print-header { border-bottom: 4px solid #0f172a; padding-bottom: 15px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end; }
-          .print-title { color: #1e3a8a; font-size: 36px; font-weight: 900; text-transform: uppercase; line-height: 1; letter-spacing: -1px; }
-          .print-card { border: 1.5px solid #cbd5e1; border-radius: 20px; padding: 20px; text-align: center; background: #f8fafc !important; }
-          .print-footer { border-top: 2px solid #e2e8f0; padding-top: 15px; margin-top: 40px; display: flex; justify-content: space-between; align-items: center; }
+          @page { 
+            size: A4; 
+            margin: 20mm; 
+          }
+          @media print {
+            body { background: white !important; -webkit-print-color-adjust: exact; }
+            .no-print { display: none !important; }
+            
+            /* Header and Footer fixed positions */
+            .print-header {
+              position: fixed;
+              top: 0;
+              left: 0;
+              right: 0;
+              height: 25mm;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              border-bottom: 2px solid #e2e8f0;
+              background: white;
+            }
+            .print-footer {
+              position: fixed;
+              bottom: 0;
+              left: 0;
+              right: 0;
+              height: 15mm;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              border-top: 1px solid #e2e8f0;
+              background: white;
+              font-size: 10px;
+              color: #64748b;
+            }
+            
+            /* Table structure to handle multi-page content flow */
+            .print-table {
+              width: 100%;
+              border-collapse: collapse;
+            }
+            .print-table-header-space { height: 30mm; }
+            .print-table-footer-space { height: 20mm; }
+            
+            /* Page numbering */
+            .page-number:after {
+              content: "Página " counter(page);
+            }
+          }
+
+          .print-title-small { color: #1e3a8a; font-size: 24px; font-weight: 900; text-transform: uppercase; }
+          .print-card-light { border: 1px solid #cbd5e1; border-radius: 12px; padding: 15px; text-align: center; background: #f8fafc !important; }
+          .markdown-content h2 { font-size: 14px; font-weight: 900; text-transform: uppercase; margin-top: 15px; margin-bottom: 8px; color: #1e3a8a; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
+          .markdown-content p { margin-bottom: 8px; font-size: 12px; }
+          .markdown-content ul { margin-bottom: 10px; padding-left: 15px; list-style-type: disc; }
+          .markdown-content li { margin-bottom: 4px; font-size: 12px; }
         `}</style>
-        
-        <div className="print-header">
-          <div className="flex items-center gap-4">
-            <Activity className="w-14 h-14 text-[#1e3a8a]" />
-            <h1 className="print-title">HospFlow</h1>
+
+        <table className="print-table">
+          <thead>
+            <tr>
+              <td>
+                <div className="print-table-header-space"></div>
+              </td>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <div className="print-content">
+                  <section className="grid grid-cols-4 gap-4 mb-8">
+                    {[
+                      { label: 'Ocupação Total', val: stats.total },
+                      { label: 'Internados', val: stats.internados },
+                      { label: 'Observação', val: stats.observacao },
+                      { label: 'Pendências Críticas', val: stats.pendencias }
+                    ].map(card => (
+                      <div key={card.label} className="print-card-light">
+                        <p className="text-[8px] font-black uppercase text-slate-500 mb-1">{card.label}</p>
+                        <h3 className="text-xl font-black text-blue-900">{card.val}</h3>
+                      </div>
+                    ))}
+                  </section>
+
+                  <div className="grid grid-cols-2 gap-8 mb-8">
+                    <div className="border border-slate-200 rounded-3xl p-6 bg-slate-50/10">
+                      <h4 className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-4">Volume por Especialidade</h4>
+                      <div className="space-y-2">
+                        {specialtyData.map(s => (
+                          <div key={s.name} className="flex justify-between items-center text-[10px] font-bold border-b border-slate-100 pb-1">
+                            <span className="text-slate-600 uppercase">{s.name}</span>
+                            <span className="text-blue-800 font-black">{s.pacientes}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="border border-slate-200 rounded-3xl p-6 bg-slate-50/10">
+                      <h4 className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-4">Status dos Pacientes</h4>
+                      <div className="space-y-4">
+                        {statusPieData.map(s => (
+                          <div key={s.name} className="flex items-center gap-3">
+                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: s.color }}></div>
+                            <div className="flex-1">
+                              <div className="flex justify-between items-end mb-0.5">
+                                 <p className="text-[8px] font-black text-slate-400 uppercase">{s.name}</p>
+                                 <p className="text-[10px] font-black text-slate-800">{s.value} Pac.</p>
+                              </div>
+                              <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                 <div className="h-full" style={{ backgroundColor: s.color, width: `${(s.value/stats.total)*100}%` }}></div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <section className="bg-slate-50 border border-slate-200 p-8 rounded-3xl">
+                    <div className="flex items-center gap-3 mb-4">
+                      <Sparkles className="w-5 h-5 text-indigo-600" />
+                      <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-700">Parecer de Inteligência Assistencial</h3>
+                    </div>
+                    <div className="space-y-6">
+                      <div className="bg-white p-5 rounded-2xl border border-slate-100">
+                        <p className="text-[8px] font-black text-blue-500 uppercase mb-2 tracking-widest">Análise Situacional IA</p>
+                        <p className="text-[11px] font-medium text-slate-700 leading-relaxed text-justify italic">"{aiAnalysis.summary || "Relatório em processamento..."}"</p>
+                      </div>
+                      <div>
+                        <p className="text-[8px] font-black text-emerald-600 uppercase mb-3 tracking-widest ml-1">Estratégias de Resolução de Fluxo</p>
+                        <div className="grid grid-cols-3 gap-3">
+                          {aiAnalysis.improvements.map((tip, i) => (
+                            <div key={i} className="bg-white p-3 rounded-xl border border-slate-100 text-[9px] font-black text-slate-600 uppercase text-center leading-tight">
+                              {tip}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td>
+                <div className="print-table-footer-space"></div>
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+
+        {/* Fixed Header */}
+        <div className="print-header no-print-screen">
+          <div className="flex items-center gap-3">
+            <Activity className="w-10 h-10 text-[#1e3a8a]" />
+            <h1 className="print-title-small">HospFlow</h1>
           </div>
           <div className="text-right">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Indicadores Operacionais e de Fluxo</p>
-            <p className="font-bold text-sm text-slate-900">{new Date().toLocaleDateString('pt-BR')} - {new Date().toLocaleTimeString('pt-BR')}</p>
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Relatório de Indicadores Operacionais</p>
+            <p className="font-bold text-xs text-slate-900">Unidade de Emergência</p>
           </div>
         </div>
 
-        <section className="grid grid-cols-4 gap-4 mb-10">
-          {[
-            { label: 'Ocupação Total', val: stats.total },
-            { label: 'Internados', val: stats.internados },
-            { label: 'Observação', val: stats.observacao },
-            { label: 'Pendências Críticas', val: stats.pendencias }
-          ].map(card => (
-            <div key={card.label} className="print-card">
-              <p className="text-[8px] font-black uppercase text-slate-500 mb-1">{card.label}</p>
-              <h3 className="text-2xl font-black text-blue-900">{card.val}</h3>
-            </div>
-          ))}
-        </section>
-
-        <div className="grid grid-cols-2 gap-10 mb-10">
-          <div className="border border-slate-200 rounded-[2.5rem] p-8 bg-slate-50/20">
-            <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-6">Volume por Especialidade</h4>
-            <div className="space-y-3">
-              {specialtyData.map(s => (
-                <div key={s.name} className="flex justify-between items-center text-[11px] font-bold border-b border-slate-100 pb-2">
-                  <span className="text-slate-600 uppercase">{s.name}</span>
-                  <span className="text-blue-800 font-black">{s.pacientes}</span>
-                </div>
-              ))}
-            </div>
+        {/* Fixed Footer */}
+        <div className="print-footer no-print-screen">
+          <div className="font-black uppercase tracking-widest">
+            HospFlow • Gestão Inteligente
           </div>
-          <div className="border border-slate-200 rounded-[2.5rem] p-8 bg-slate-50/20">
-            <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-6">Status dos Pacientes (%)</h4>
-            <div className="space-y-6">
-              {statusPieData.map(s => (
-                <div key={s.name} className="flex items-center gap-4">
-                  <div className="w-4 h-4 rounded-full" style={{ backgroundColor: s.color }}></div>
-                  <div className="flex-1">
-                    <div className="flex justify-between items-end mb-1">
-                       <p className="text-[9px] font-black text-slate-400 uppercase">{s.name}</p>
-                       <p className="text-[11px] font-black text-slate-800">{s.value} Pac.</p>
-                    </div>
-                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                       <div className="h-full" style={{ backgroundColor: s.color, width: `${(s.value/stats.total)*100}%` }}></div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+          <div className="flex items-center gap-4">
+            <span className="font-bold">{new Date().toLocaleDateString('pt-BR')}</span>
+            <span className="page-number font-black"></span>
           </div>
         </div>
-
-        <section className="bg-slate-900 text-white p-10 rounded-[2.5rem] flex-1">
-          <div className="flex items-center gap-3 mb-6">
-            <Sparkles className="w-6 h-6 text-amber-400" />
-            <h3 className="text-xs font-black uppercase tracking-widest">Parecer de Inteligência Assistencial</h3>
-          </div>
-          <div className="space-y-8">
-            <div className="bg-white/5 p-6 rounded-2xl border border-white/10">
-              <p className="text-[9px] font-black text-blue-400 uppercase mb-3 tracking-widest">Análise Situacional IA</p>
-              <p className="text-[12px] font-bold text-white/90 leading-relaxed text-justify italic">"{aiAnalysis.summary || "Relatório em processamento..."}"</p>
-            </div>
-            <div>
-              <p className="text-[9px] font-black text-emerald-400 uppercase mb-4 tracking-widest ml-1">Estratégias de Resolução de Fluxo</p>
-              <div className="grid grid-cols-3 gap-4">
-                {aiAnalysis.improvements.map((tip, i) => (
-                  <div key={i} className="bg-white/5 p-4 rounded-2xl border border-white/10 text-[9px] font-black text-emerald-100 uppercase text-center leading-tight">
-                    {tip}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <footer className="print-footer">
-          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-            HospFlow • Sistema de Gestão Inteligente
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="flex flex-col items-center justify-center w-10 h-10">
-              <div className="relative">
-                <Stethoscope className="w-7 h-7 text-emerald-600" />
-                <div className="absolute -top-1 -right-1">
-                  <Sparkles className="w-3 h-3 text-yellow-500 fill-yellow-500" />
-                </div>
-              </div>
-              <span className="text-[7px] font-black text-slate-900 mt-0.5">MA</span>
-            </div>
-          </div>
-        </footer>
       </div>
     </div>
   );

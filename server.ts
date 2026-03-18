@@ -1,14 +1,21 @@
 import express from "express";
 import cors from "cors";
-import pg from "pg";
+import Database from "better-sqlite3";
+import pkg from 'pg';
+const { Pool } = pkg;
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
-
-const { Pool } = pg;
+import { createServer } from "http";
+import { Server } from "socket.io";
+import fs from "fs";
+import dotenv from "dotenv";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+dotenv.config({ path: path.join(__dirname, ".env.local") });
+dotenv.config();
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -20,43 +27,55 @@ async function initDb() {
     await client.query(`
       CREATE TABLE IF NOT EXISTS patients (
         id TEXT PRIMARY KEY,
-        data JSONB NOT NULL
+        data TEXT NOT NULL
       );
       CREATE TABLE IF NOT EXISTS lean_patients (
         id TEXT PRIMARY KEY,
-        data JSONB NOT NULL
+        data TEXT NOT NULL
       );
       CREATE TABLE IF NOT EXISTS collaborators (
         id TEXT PRIMARY KEY,
         login TEXT UNIQUE NOT NULL,
-        data JSONB NOT NULL
+        data TEXT NOT NULL
       );
     `);
 
-    // Seed initial collaborators if empty
-    const countRes = await client.query("SELECT count(*) FROM collaborators");
-    if (parseInt(countRes.rows[0].count) === 0) {
-      const defaultCollabs = [
-        { id: '1', name: 'MA Desenvolvedor', login: '5669', password: '387387', role: 'coordenacao', failedAttempts: 0, isBlocked: false, isDeleted: false },
-        { id: '2', name: 'Coordenação Setorial', login: '1010', password: '1234', role: 'coordenacao', failedAttempts: 0, isBlocked: false, isDeleted: false },
-        { id: '3', name: 'Técnico Exemplo', login: '456', password: '1234', role: 'tecnico', failedAttempts: 0, isBlocked: false, isDeleted: false }
-      ];
-      for (const collab of defaultCollabs) {
-        await client.query(
-          "INSERT INTO collaborators (id, login, data) VALUES ($1, $2, $3)",
-          [collab.id, collab.login, collab]
-        );
+    // Migration logic from SQLite to PostgreSQL
+    const sqlitePath = path.join(__dirname, "database.db");
+    if (fs.existsSync(sqlitePath)) {
+      const pgCollabCount = await client.query("SELECT count(*) FROM collaborators");
+      if (parseInt(pgCollabCount.rows[0].count) === 0) {
+        console.log("Migrating data from SQLite to PostgreSQL...");
+        const sqliteDb = new Database(sqlitePath);
+        
+        // Migrate Collaborators
+        const collaborators = sqliteDb.prepare("SELECT * FROM collaborators").all() as any[];
+        for (const collab of collaborators) {
+          await client.query("INSERT INTO collaborators (id, login, data) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING", [collab.id, collab.login, collab.data]);
+        }
+
+        // Migrate Patients
+        const patients = sqliteDb.prepare("SELECT * FROM patients").all() as any[];
+        for (const p of patients) {
+          await client.query("INSERT INTO patients (id, data) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING", [p.id, p.data]);
+        }
+
+        // Migrate Lean Patients
+        const leanPatients = sqliteDb.prepare("SELECT * FROM lean_patients").all() as any[];
+        for (const lp of leanPatients) {
+          await client.query("INSERT INTO lean_patients (id, data) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING", [lp.id, lp.data]);
+        }
+        
+        console.log("Migration completed.");
+        sqliteDb.close();
       }
-    } else {
-      // Ensure developer user is always correct
-      const dev = { id: '1', name: 'MA Desenvolvedor', login: '5669', password: '387387', role: 'coordenacao', failedAttempts: 0, isBlocked: false, isDeleted: false };
-      // First, remove any other user with login '5669' to avoid UNIQUE constraint violation if they have a different ID
-      await client.query("DELETE FROM collaborators WHERE login = '5669' AND id != '1'");
-      await client.query(
-        "INSERT INTO collaborators (id, login, data) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET login = EXCLUDED.login, data = EXCLUDED.data",
-        [dev.id, dev.login, dev]
-      );
     }
+
+    // Ensure developer user is always correct
+    const dev = { id: '1', name: 'MA Desenvolvedor', login: '5669', password: '387387', role: 'coordenacao', failedAttempts: 0, isBlocked: false, isDeleted: false };
+    await client.query("DELETE FROM collaborators WHERE login = '5669' AND id != '1'");
+    await client.query("INSERT INTO collaborators (id, login, data) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET login = EXCLUDED.login, data = EXCLUDED.data", [dev.id, dev.login, JSON.stringify(dev)]);
+
   } finally {
     client.release();
   }
@@ -66,14 +85,29 @@ async function startServer() {
   await initDb();
   
   const app = express();
+  const httpServer = createServer(app);
+  const io = new Server(httpServer, {
+    cors: {
+      origin: "*",
+      methods: ["GET", "POST"]
+    }
+  });
+
   app.use(cors());
   app.use(express.json());
+
+  io.on("connection", (socket) => {
+    console.log("Client connected:", socket.id);
+    socket.on("disconnect", () => {
+      console.log("Client disconnected:", socket.id);
+    });
+  });
 
   // Patients API
   app.get("/api/patients", async (req, res) => {
     try {
       const result = await pool.query("SELECT data FROM patients");
-      res.json(result.rows.map(r => r.data));
+      res.json(result.rows.map(r => JSON.parse(r.data)));
     } catch (err) {
       res.status(500).json({ error: (err as Error).message });
     }
@@ -82,10 +116,8 @@ async function startServer() {
   app.post("/api/patients", async (req, res) => {
     try {
       const patient = req.body;
-      await pool.query(
-        "INSERT INTO patients (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data",
-        [patient.id, patient]
-      );
+      await pool.query("INSERT INTO patients (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data", [patient.id, JSON.stringify(patient)]);
+      io.emit("patient_updated", patient);
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ error: (err as Error).message });
@@ -95,6 +127,7 @@ async function startServer() {
   app.delete("/api/patients/:id", async (req, res) => {
     try {
       await pool.query("DELETE FROM patients WHERE id = $1", [req.params.id]);
+      io.emit("patient_deleted", req.params.id);
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ error: (err as Error).message });
@@ -102,12 +135,21 @@ async function startServer() {
   });
 
   app.post("/api/patients/bulk-delete", async (req, res) => {
+    const client = await pool.connect();
     try {
       const ids = req.body.ids;
-      await pool.query("DELETE FROM patients WHERE id = ANY($1)", [ids]);
+      await client.query('BEGIN');
+      for (const id of ids) {
+        await client.query("DELETE FROM patients WHERE id = $1", [id]);
+      }
+      await client.query('COMMIT');
+      io.emit("patients_bulk_deleted", ids);
       res.json({ success: true });
     } catch (err) {
+      await client.query('ROLLBACK');
       res.status(500).json({ error: (err as Error).message });
+    } finally {
+      client.release();
     }
   });
 
@@ -115,7 +157,7 @@ async function startServer() {
   app.get("/api/lean-patients", async (req, res) => {
     try {
       const result = await pool.query("SELECT data FROM lean_patients");
-      res.json(result.rows.map(r => r.data));
+      res.json(result.rows.map(r => JSON.parse(r.data)));
     } catch (err) {
       res.status(500).json({ error: (err as Error).message });
     }
@@ -124,10 +166,8 @@ async function startServer() {
   app.post("/api/lean-patients", async (req, res) => {
     try {
       const patient = req.body;
-      await pool.query(
-        "INSERT INTO lean_patients (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data",
-        [patient.id, patient]
-      );
+      await pool.query("INSERT INTO lean_patients (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data", [patient.id, JSON.stringify(patient)]);
+      io.emit("lean_patient_updated", patient);
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ error: (err as Error).message });
@@ -137,6 +177,7 @@ async function startServer() {
   app.delete("/api/lean-patients/:id", async (req, res) => {
     try {
       await pool.query("DELETE FROM lean_patients WHERE id = $1", [req.params.id]);
+      io.emit("lean_patient_deleted", req.params.id);
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ error: (err as Error).message });
@@ -147,7 +188,7 @@ async function startServer() {
   app.get("/api/collaborators", async (req, res) => {
     try {
       const result = await pool.query("SELECT data FROM collaborators");
-      res.json(result.rows.map(r => r.data));
+      res.json(result.rows.map(r => JSON.parse(r.data)));
     } catch (err) {
       res.status(500).json({ error: (err as Error).message });
     }
@@ -156,10 +197,8 @@ async function startServer() {
   app.post("/api/collaborators", async (req, res) => {
     try {
       const collab = req.body;
-      await pool.query(
-        "INSERT INTO collaborators (id, login, data) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET login = EXCLUDED.login, data = EXCLUDED.data",
-        [collab.id, collab.login, collab]
-      );
+      await pool.query("INSERT INTO collaborators (id, login, data) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET login = EXCLUDED.login, data = EXCLUDED.data", [collab.id, collab.login, JSON.stringify(collab)]);
+      io.emit("collaborator_updated", collab);
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ error: (err as Error).message });
@@ -172,6 +211,7 @@ async function startServer() {
         return res.status(403).json({ error: "Cannot delete master developer" });
       }
       await pool.query("DELETE FROM collaborators WHERE id = $1", [req.params.id]);
+      io.emit("collaborator_deleted", req.params.id);
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ error: (err as Error).message });
@@ -193,7 +233,7 @@ async function startServer() {
   }
 
   const PORT = 3000;
-  app.listen(PORT, "0.0.0.0", () => {
+  httpServer.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
 }

@@ -14,7 +14,8 @@ import {
   Check,
   Utensils,
   LogOut,
-  UserCheck
+  UserCheck,
+  Clock
 } from 'lucide-react';
 import { DIETS } from '../constants';
 
@@ -26,6 +27,9 @@ interface PendencyViewProps {
 
 const PendencyView: React.FC<PendencyViewProps> = ({ patients, onUpdatePatient, role }) => {
   const [solvingDietId, setSolvingDietId] = useState<string | null>(null);
+  const [solvingReevaluationId, setSolvingReevaluationId] = useState<string | null>(null);
+  const [solvingTransferId, setSolvingTransferId] = useState<string | null>(null);
+  const [transferDestination, setTransferDestination] = useState('');
   const [selectedDiets, setSelectedDiets] = useState<DietType[]>([]);
 
   const active = patients.filter(p => !p.isTransferred);
@@ -41,7 +45,8 @@ const PendencyView: React.FC<PendencyViewProps> = ({ patients, onUpdatePatient, 
     ].includes(p.pendencies)),
     prescription: active.filter(p => p.pendencies === 'Sem prescrição médica' || p.pendencies === 'Sem dieta'),
     // ADMIN agora inclui também todos que estão com status de ALTA
-    admin: active.filter(p => p.pendencies === 'Aguardando Assistente Social' || p.status === 'Alta')
+    admin: active.filter(p => p.pendencies === 'Aguardando Assistente Social' || p.status === 'Alta' || p.pendencies === 'Transferência UPA' || p.pendencies === 'Transferência Externo'),
+    reevaluations: active.filter(p => p.status === 'Reavaliação' || p.pendencies === 'Reavaliação médica')
   }), [active]);
 
   const handleResolveDiet = (id: string) => {
@@ -114,7 +119,78 @@ const PendencyView: React.FC<PendencyViewProps> = ({ patients, onUpdatePatient, 
                 )}
              </div>
 
-             {solvingDietId === p.id ? (
+             {solvingTransferId === p.id ? (
+               <div className="bg-white p-4 rounded-xl border border-blue-100 space-y-4 animate-in zoom-in duration-200">
+                 <div className="flex items-center gap-2 mb-2">
+                    <LogOut className="w-4 h-4 text-blue-600" />
+                    <p className="text-[10px] font-black text-blue-900 uppercase">Paciente foi transferido para onde?</p>
+                 </div>
+                 <input 
+                   type="text" 
+                   placeholder="Ex.: UPA HOB - Cersan" 
+                   className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500 uppercase"
+                   value={transferDestination}
+                   onChange={e => setTransferDestination(e.target.value.toUpperCase())}
+                 />
+                 <div className="flex gap-2">
+                   <button onClick={() => { setSolvingTransferId(null); setTransferDestination(''); }} className="flex-1 py-2 bg-slate-100 text-slate-500 rounded-lg text-[10px] font-bold uppercase">Cancelar</button>
+                   <button 
+                     onClick={() => {
+                       if (!transferDestination) return alert("Informe o destino da transferência");
+                       onUpdatePatient(p.id, { 
+                         isTransferred: true, 
+                         transferredAt: new Date().toISOString(),
+                         notes: (p.notes ? p.notes + '\n' : '') + `TRANSFERIDO PARA: ${transferDestination}`
+                       });
+                       setSolvingTransferId(null);
+                       setTransferDestination('');
+                       alert(`Paciente ${p.name} transferido com sucesso!`);
+                       window.dispatchEvent(new CustomEvent('change-view', { detail: 'FINALIZED_PATIENTS' }));
+                     }} 
+                     className="flex-1 py-2 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase shadow-lg"
+                   >
+                     Concluir
+                   </button>
+                 </div>
+               </div>
+             ) : solvingReevaluationId === p.id ? (
+               <div className="bg-white p-4 rounded-xl border border-amber-100 space-y-4 animate-in zoom-in duration-200">
+                 <div className="flex items-center gap-2 mb-2">
+                    <Clock className="w-4 h-4 text-amber-600" />
+                    <p className="text-[10px] font-black text-amber-900 uppercase">Qual foi a conduta médica?</p>
+                 </div>
+                 <div className="flex flex-col gap-2">
+                   <button
+                     onClick={() => {
+                       onUpdatePatient(p.id, { status: 'Internado', pendencies: 'Nenhuma' });
+                       setSolvingReevaluationId(null);
+                     }}
+                     className="w-full py-2 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase shadow-md"
+                   >
+                     Internação
+                   </button>
+                   <button
+                     onClick={() => {
+                       onUpdatePatient(p.id, { status: 'Observação', pendencies: 'Nenhuma' });
+                       setSolvingReevaluationId(null);
+                     }}
+                     className="w-full py-2 bg-indigo-600 text-white rounded-lg text-[10px] font-black uppercase shadow-md"
+                   >
+                     Observação
+                   </button>
+                   <button
+                     onClick={() => {
+                       handleFinalizeAlta(p);
+                       setSolvingReevaluationId(null);
+                     }}
+                     className="w-full py-2 bg-emerald-600 text-white rounded-lg text-[10px] font-black uppercase shadow-md"
+                   >
+                     Alta
+                   </button>
+                   <button onClick={() => setSolvingReevaluationId(null)} className="w-full py-2 bg-slate-100 text-slate-500 rounded-lg text-[10px] font-bold uppercase">Cancelar</button>
+                 </div>
+               </div>
+             ) : solvingDietId === p.id ? (
                <div className="bg-white p-4 rounded-xl border border-indigo-100 space-y-4 animate-in zoom-in duration-200">
                  <div className="flex items-center gap-2 mb-2">
                     <Utensils className="w-4 h-4 text-indigo-600" />
@@ -140,7 +216,7 @@ const PendencyView: React.FC<PendencyViewProps> = ({ patients, onUpdatePatient, 
              ) : (
                <div className="flex flex-col gap-2">
                   {/* Botões específicos para o módulo ADMIN de Alta/Social */}
-                  {title === 'Admin' && isAlta && needsSocial && (
+                  {title === 'Admin/Transf' && isAlta && needsSocial && (
                     <button onClick={() => onUpdatePatient(p.id, { pendencies: 'Nenhuma' })} className="w-full py-2 bg-indigo-100 text-indigo-700 rounded-xl text-[9px] font-black uppercase flex items-center justify-center gap-2 hover:bg-indigo-200 transition-all border border-indigo-200">
                       <HeartHandshake className="w-3.5 h-3.5" />
                       Concluir Ass. Social
@@ -152,6 +228,10 @@ const PendencyView: React.FC<PendencyViewProps> = ({ patients, onUpdatePatient, 
                       onUpdatePatient(p.id, { hasBracelet: true, hasBedIdentification: true });
                     } else if (p.status === 'Alta') {
                       handleFinalizeAlta(p);
+                    } else if (p.pendencies === 'Transferência UPA' || p.pendencies === 'Transferência Externo') {
+                      setSolvingTransferId(p.id);
+                    } else if (p.pendencies === 'Reavaliação médica') {
+                      setSolvingReevaluationId(p.id);
                     } else if (p.pendencies === 'Sem dieta') {
                       setSolvingDietId(p.id);
                     } else if (p.pendencies === 'Sem prescrição médica') {
@@ -161,7 +241,7 @@ const PendencyView: React.FC<PendencyViewProps> = ({ patients, onUpdatePatient, 
                     }
                   }} className={`w-full py-2 text-white rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 ${isAlta ? 'bg-blue-600 hover:bg-blue-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}>
                       {isAlta ? <LogOut className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                      {isAlta ? 'Finalizar Alta' : (safety ? 'Identificado' : 'Concluído')}
+                      {isAlta ? 'Finalizar Alta' : (safety ? 'Identificado' : (p.pendencies === 'Transferência UPA' || p.pendencies === 'Transferência Externo' || p.pendencies === 'Reavaliação médica' ? 'Concluir' : 'Concluído'))}
                   </button>
                </div>
              )}
@@ -178,11 +258,12 @@ const PendencyView: React.FC<PendencyViewProps> = ({ patients, onUpdatePatient, 
   );
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
       <Card title="Segurança" icon={ShieldCheck} color="bg-red-600" items={categories.safety} safety />
       <Card title="Exames" icon={FileSearch} color="bg-blue-600" items={categories.exams} />
       <Card title="Prescrição" icon={Stethoscope} color="bg-indigo-600" items={categories.prescription} />
-      <Card title="Admin" icon={UserCog} color="bg-slate-700" items={categories.admin} />
+      <Card title="Admin/Transf" icon={UserCog} color="bg-slate-700" items={categories.admin} />
+      <Card title="Reavaliações" icon={Clock} color="bg-amber-500" items={categories.reevaluations} />
     </div>
   );
 };

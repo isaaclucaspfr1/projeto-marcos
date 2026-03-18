@@ -66,27 +66,26 @@ const CollaboratorManager: React.FC<CollaboratorManagerProps> = ({ user, collabo
   };
 
   const getStatusDisplay = (collab: Collaborator) => {
-    if (collab.isDeleted) return { text: 'Excluído', color: 'text-red-600', bg: 'bg-red-50', icon: UserMinus };
     if (collab.isBlocked) return { text: 'Bloqueado', color: 'text-orange-600', bg: 'bg-orange-50', icon: Lock };
     return { text: 'Ativo', color: 'text-emerald-600', bg: 'bg-emerald-50', icon: CheckCircle2 };
   };
 
   const filteredCollaborators = useMemo(() => {
     return collaborators
-      .filter(c => !c.isDeleted || isDev)
+      .filter(c => !c.isDeleted)
       .filter(c => 
         c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
         c.login.includes(searchTerm)
       )
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [collaborators, searchTerm, isDev]);
+  }, [collaborators, searchTerm]);
 
   return (
     <div className="max-w-4xl mx-auto py-4">
       <div className="flex justify-between items-center mb-10 no-print">
          <div>
             <h2 className="text-2xl font-black text-slate-800 tracking-tighter">
-              {isNurse ? 'Consulta de Usuários' : 'Gestão de Equipes'}
+              Usuários
             </h2>
             <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">
               {isDev ? 'Acesso Master Developer' : (isCoord ? 'Módulo de Coordenação' : 'Módulo de Enfermagem')}
@@ -112,7 +111,7 @@ const CollaboratorManager: React.FC<CollaboratorManagerProps> = ({ user, collabo
                      {isNurse ? <UserSearch className="w-10 h-10" /> : <Users className="w-10 h-10" />}
                   </div>
                   <span className="font-black text-slate-700 uppercase tracking-[0.2em] text-xs">
-                    {isNurse ? 'Consultar Usuários' : 'Usuários'}
+                    Usuários
                   </span>
                </button>
            </div>
@@ -261,8 +260,8 @@ const CollaboratorManager: React.FC<CollaboratorManagerProps> = ({ user, collabo
                         {(isCoord || isDev) && selectedUser.login !== '5669' && (
                           <button 
                             onClick={() => {
-                              if(confirm(`ATENÇÃO: Deseja realmente excluir o acesso de ${selectedUser.name}? Esta ação impedirá o login permanentemente.`)) {
-                                onUpdate(collaborators.map(c => c.id === selectedUser.id ? {...c, isDeleted: true, isBlocked: true} : c));
+                              if(confirm(`ATENÇÃO: Deseja realmente excluir o acesso de ${selectedUser.name}? Esta ação removerá o usuário permanentemente.`)) {
+                                onUpdate(collaborators.filter(c => c.id !== selectedUser.id));
                                 alert("Usuário excluído com sucesso.");
                                 setView('USERS_LIST');
                               }
@@ -281,14 +280,6 @@ const CollaboratorManager: React.FC<CollaboratorManagerProps> = ({ user, collabo
                           </div>
                         )}
                       </>
-                    )}
-                    {selectedUser.isDeleted && (
-                       <div className="p-6 bg-red-50 rounded-2xl border border-red-100 text-center">
-                          <AlertCircle className="w-8 h-8 text-red-600 mx-auto mb-2" />
-                          <p className="text-xs font-black text-red-800 uppercase leading-relaxed text-center">
-                             ESTE USUÁRIO FOI EXCLUÍDO DO SISTEMA. <br/> Apenas o desenvolvedor master (5669) pode cadastrar novamente.
-                          </p>
-                       </div>
                     )}
                  </div>
 

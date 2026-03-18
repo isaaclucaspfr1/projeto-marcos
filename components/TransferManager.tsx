@@ -19,9 +19,13 @@ import {
   Sparkles, 
   Loader2,
   Clock,
-  Printer
+  Printer,
+  LogOut,
+  UserMinus,
+  ArrowRightLeft
 } from 'lucide-react';
 import { GoogleGenAI, Type } from "@google/genai";
+import ReactMarkdown from 'react-markdown';
 
 interface TransferManagerProps {
   role: Role;
@@ -38,6 +42,7 @@ const TransferManager: React.FC<TransferManagerProps> = ({ role, patients, onUpd
   const [selectedReportMonth, setSelectedReportMonth] = useState<string | null>(null);
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<string>('');
+  const [showAiReportModal, setShowAiReportModal] = useState(false);
   
   const isAuthorizedToDelete = role === 'enfermeiro' || role === 'coordenacao';
   const isCoordinator = role === 'coordenacao';
@@ -142,9 +147,20 @@ const TransferManager: React.FC<TransferManagerProps> = ({ role, patients, onUpd
     setIsGeneratingAi(true);
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const prompt = `Gere um relatório gerencial detalhado para o mês de ${month} baseado nos seguintes indicadores de performance hospitalar:
+      
+      // Obter lista resumida de pacientes para o contexto da IA
+      const monthlyPatients = patients.filter(p => {
+        const label = new Date(p.createdAt).toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+        return label === month;
+      });
 
-      DADOS GERAIS:
+      const patientSummary = monthlyPatients.map(p => 
+        `- ${p.name} (${p.medicalRecord}): ${p.status} | Especialidade: ${p.specialty} | Destino: ${p.transferDestinationSector || 'N/A'}`
+      ).join('\n');
+
+      const prompt = `Gere um relatório gerencial detalhado e estruturado para o mês de ${month} baseado nos seguintes indicadores de performance hospitalar:
+
+      DADOS ESTATÍSTICOS:
       - Total de Pacientes: ${stats.total}
       - Altas: ${stats.altas}
       - Transferências UPA: ${stats.upa}
@@ -163,23 +179,33 @@ const TransferManager: React.FC<TransferManagerProps> = ({ role, patients, onUpd
       ANÁLISE DE PENDÊNCIAS:
       ${stats.pendencyData.map((p: any) => `- ${p.name}: ${p.count} casos (Média Resolução: ${p.avg}h)`).join('\n')}
 
-      REQUISITOS DO RELATÓRIO:
-      1. Identifique os principais gargalos operacionais.
-      2. Compare o desempenho das especialidades.
-      3. Sugira melhorias específicas para reduzir o tempo de permanência na maca.
-      4. Analise o impacto das pendências no giro de leito.
+      LISTA DE PACIENTES DO PERÍODO:
+      ${patientSummary}
+
+      REQUISITOS OBRIGATÓRIOS DE FORMATAÇÃO:
+      1. Use títulos de seção claros com "## ".
+      2. Use listas com marcadores "-" para detalhar pontos.
+      3. Use negrito "**" para destacar números e indicadores críticos.
+      4. Crie parágrafos curtos e objetivos.
+      5. NÃO gere um bloco único de texto. Use quebras de linha duplas entre seções.
       
-      Escreva em tom profissional, técnico e propositivo.`;
+      ESTRUTURA DO RELATÓRIO:
+      1. ## Resumo Executivo: Visão geral do mês.
+      2. ## Análise de Fluxo: Como as especialidades se comportaram.
+      3. ## Gargalos Identificados: Onde o processo está travando (baseado nos tempos e pendências).
+      4. ## Conclusão e Plano de Ação: Sugestões práticas para o próximo mês.
+
+      Tom de voz: Profissional, analítico e focado em melhoria contínua.`;
 
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: prompt
       });
       setAiAnalysis(response.text || '');
-      setTimeout(() => window.print(), 1000);
+      setShowAiReportModal(true);
     } catch (e) {
-      setAiAnalysis("Relatório consolidado processado com sucesso. Indicadores dentro da margem de segurança operacional.");
-      setTimeout(() => window.print(), 1000);
+      setAiAnalysis("## Erro na Geração\n\nNão foi possível processar a análise detalhada no momento. Por favor, utilize os indicadores numéricos acima para sua gestão.");
+      setShowAiReportModal(true);
     } finally {
       setIsGeneratingAi(false);
     }
@@ -189,6 +215,21 @@ const TransferManager: React.FC<TransferManagerProps> = ({ role, patients, onUpd
     setSelectedReportMonth(month);
     setShowMonthSelector(false);
     if (monthlyStats) generateMonthlyAnalysis(monthlyStats, month);
+  };
+
+  const handleCompleteTransfer = (p: Patient) => {
+    const destination = p.transferDestinationSector || 'setor não informado';
+    const bed = p.transferDestinationBed || 'leito não informado';
+    
+    if (confirm(`Paciente ${p.name} foi transferido para a enfermaria ${destination} e o leito ${bed} solicitado corretamente?`)) {
+      onUpdatePatient(p.id, { 
+        isTransferred: true, 
+        transferredAt: new Date().toISOString(),
+        status: p.status.includes('Transferência') ? p.status : 'Transferido'
+      });
+      alert(`Transferência de ${p.name} concluída com sucesso!`);
+      window.dispatchEvent(new CustomEvent('change-view', { detail: 'FINALIZED_PATIENTS' }));
+    }
   };
 
   return (
@@ -247,141 +288,285 @@ const TransferManager: React.FC<TransferManagerProps> = ({ role, patients, onUpd
         <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-slate-950/90 text-white backdrop-blur-xl no-print">
            <Loader2 className="w-16 h-16 animate-spin text-indigo-500 mb-6" />
            <h2 className="text-2xl font-black uppercase tracking-tight">Inteligência HospFlow</h2>
-           <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.3em] mt-2 animate-pulse">Consolidando indicadores mensais...</p>
+           <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.3em] mt-2 animate-pulse">Analisando indicadores e pacientes...</p>
+        </div>
+      )}
+
+      {showAiReportModal && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-6 bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-300 no-print">
+           <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden border border-slate-200 flex flex-col">
+              <div className="bg-indigo-600 p-6 text-white flex justify-between items-center">
+                 <div>
+                    <h3 className="text-lg font-black uppercase tracking-tight">Análise Gerencial IA</h3>
+                    <p className="text-indigo-100 text-[10px] font-black uppercase tracking-widest">Relatório Consolidado - {selectedReportMonth}</p>
+                 </div>
+                 <div className="flex items-center gap-2">
+                    <button onClick={() => window.print()} className="p-3 bg-white/10 hover:bg-white/20 rounded-2xl transition-all">
+                       <Printer className="w-5 h-5" />
+                    </button>
+                    <button onClick={() => setShowAiReportModal(false)} className="p-3 bg-white/10 hover:bg-white/20 rounded-2xl transition-all">
+                       <LogOut className="w-5 h-5 rotate-180" />
+                    </button>
+                 </div>
+              </div>
+              <div className="p-8 overflow-y-auto custom-scrollbar flex-1 bg-slate-50">
+                 <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm markdown-content text-slate-700 leading-relaxed">
+                    <ReactMarkdown>{aiAnalysis}</ReactMarkdown>
+                 </div>
+              </div>
+              <div className="p-6 bg-white border-t flex justify-center gap-4">
+                 <button onClick={() => window.print()} className="px-8 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg hover:bg-indigo-700 transition-all uppercase text-xs tracking-widest flex items-center gap-2">
+                    <Printer className="w-5 h-5" /> Imprimir Relatório
+                 </button>
+                 <button onClick={() => setShowAiReportModal(false)} className="px-8 py-4 bg-slate-100 text-slate-500 font-black rounded-2xl hover:bg-slate-200 transition-all uppercase text-xs tracking-widest">
+                    Fechar Visualização
+                 </button>
+              </div>
+           </div>
         </div>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 no-print">
         {currentList.map(p => (
-          <div key={p.id} className={`bg-white p-5 rounded-3xl border shadow-sm relative group ${selectedIds.includes(p.id) ? 'ring-2 ring-blue-500 border-blue-500' : 'border-slate-100'}`} onClick={() => historyView && isAuthorizedToDelete && (selectedIds.includes(p.id) ? setSelectedIds(prev => prev.filter(i => i !== p.id)) : setSelectedIds(prev => [...prev, p.id]))}>
+          <div key={p.id} className={`bg-white p-5 rounded-3xl border shadow-sm relative group transition-all hover:shadow-md ${selectedIds.includes(p.id) ? 'ring-2 ring-blue-500 border-blue-500' : 'border-slate-100'}`} onClick={() => historyView && isAuthorizedToDelete && (selectedIds.includes(p.id) ? setSelectedIds(prev => prev.filter(i => i !== p.id)) : setSelectedIds(prev => [...prev, p.id]))}>
                <div className="flex items-center gap-3 mb-4">
-                  <div className={`p-3 rounded-2xl ${historyView ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'}`}>
-                     <User className="w-6 h-6" />
+                  <div className={`p-3 rounded-2xl ${
+                    historyView 
+                      ? (p.status === 'Alta' ? 'bg-emerald-50 text-emerald-600' : p.status === 'Evasão' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600') 
+                      : 'bg-orange-50 text-orange-600'
+                  }`}>
+                     {p.status === 'Alta' ? <LogOut className="w-6 h-6" /> : 
+                      p.status === 'Evasão' ? <UserMinus className="w-6 h-6" /> : 
+                      <User className="w-6 h-6" />}
                   </div>
-                  <div>
-                     <h4 className="font-black text-slate-800 uppercase line-clamp-1">{p.name}</h4>
-                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{p.medicalRecord}</p>
+                  <div className="flex-1 overflow-hidden">
+                     <h4 className="font-black text-slate-800 uppercase truncate">{p.name}</h4>
+                     <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{p.medicalRecord}</span>
+                        {p.age && <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">• {p.age} ANOS</span>}
+                     </div>
                   </div>
                </div>
-               <div className={`p-4 rounded-2xl border mb-4 space-y-2 ${historyView ? 'bg-emerald-50/50 border-emerald-100' : 'bg-slate-50 border-slate-100'}`}>
-                  <div className="flex justify-between items-center font-bold text-xs">
-                     <span className="text-slate-700 truncate">{p.transferDestinationSector || p.status}</span>
-                     <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-lg">L: {p.transferDestinationBed || 'Pendente'}</span>
+
+               <div className="grid grid-cols-2 gap-2 mb-4">
+                  <div className="bg-slate-50 p-2 rounded-xl border border-slate-100">
+                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Especialidade</p>
+                    <p className="text-[10px] font-bold text-slate-700 uppercase truncate">{p.specialty}</p>
+                  </div>
+                  <div className="bg-slate-50 p-2 rounded-xl border border-slate-100">
+                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Status/Destino</p>
+                    <p className={`text-[10px] font-black uppercase truncate ${
+                      p.status === 'Alta' ? 'text-emerald-600' : 
+                      p.status === 'Evasão' ? 'text-amber-600' : 
+                      'text-blue-600'
+                    }`}>
+                      {p.status === 'Alta' ? 'Alta Hospitalar' : 
+                       p.status === 'Evasão' ? 'Evasão' : 
+                       (p.transferDestinationSector || p.status)}
+                    </p>
                   </div>
                </div>
+
+               <div className={`p-3 rounded-2xl border mb-4 ${historyView ? 'bg-emerald-50/30 border-emerald-100/50' : 'bg-slate-50 border-slate-100'}`}>
+                  <div className="flex justify-between items-center font-bold text-[10px] uppercase tracking-tight">
+                     <span className="text-slate-500">Leito Destino</span>
+                     <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-lg">
+                        {p.transferDestinationBed || (p.status === 'Alta' || p.status === 'Evasão' ? 'N/A' : 'Pendente')}
+                     </span>
+                  </div>
+                  {historyView && p.transferredAt && (
+                    <div className="flex items-center gap-1 text-[9px] font-black text-slate-400 uppercase tracking-widest pt-2 mt-2 border-t border-slate-100">
+                      <Clock className="w-3 h-3 text-emerald-500" />
+                      Finalizado: {new Date(p.transferredAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  )}
+               </div>
+
+               {!historyView && (
+                 <button 
+                   onClick={(e) => { e.stopPropagation(); handleCompleteTransfer(p); }}
+                   className="w-full py-3 bg-emerald-600 text-white rounded-2xl font-black text-[10px] uppercase flex items-center justify-center gap-2 hover:bg-emerald-700 transition-all shadow-md active:scale-95"
+                 >
+                   <CheckCircle className="w-4 h-4" /> Concluir Transferência
+                 </button>
+               )}
             </div>
         ))}
       </div>
 
       {selectedReportMonth && monthlyStats && (
-        <div className="hidden print:block bg-white text-slate-900 p-0 font-sans" style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '15mm' }}>
+        <div className="hidden print:block bg-white text-slate-900 font-sans">
           <style>{`
-            @page { size: A4; margin: 0; }
-            @media print {
-              body { -webkit-print-color-adjust: exact; background: white; }
-              .p-card { border: 1.5px solid #e2e8f0 !important; background: #f8fafc !important; }
+            @page { 
+              size: A4; 
+              margin: 20mm; 
             }
-            .print-header { border-bottom: 4px solid #0f172a; padding-bottom: 15px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end; }
-            .print-title { color: #1e3a8a; font-size: 36px; font-weight: 900; text-transform: uppercase; line-height: 1; }
-            .print-footer { border-top: 2px solid #e2e8f0; padding-top: 15px; margin-top: 40px; display: flex; justify-content: space-between; align-items: center; }
+            @media print {
+              body { background: white !important; -webkit-print-color-adjust: exact; }
+              .no-print { display: none !important; }
+              
+              .print-header {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 25mm;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                border-bottom: 2px solid #e2e8f0;
+                background: white;
+              }
+              .print-footer {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                height: 15mm;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                border-top: 1px solid #e2e8f0;
+                background: white;
+                font-size: 10px;
+                color: #64748b;
+              }
+              
+              .print-table {
+                width: 100%;
+                border-collapse: collapse;
+              }
+              .print-table-header-space { height: 30mm; }
+              .print-table-footer-space { height: 20mm; }
+              
+              .page-number:after {
+                content: "Página " counter(page);
+              }
+              .p-card { border: 1px solid #e2e8f0 !important; background: #f8fafc !important; }
+            }
+
+            .print-title-small { color: #1e3a8a; font-size: 24px; font-weight: 900; text-transform: uppercase; }
+            .markdown-content h2 { font-size: 14px; font-weight: 900; text-transform: uppercase; margin-top: 15px; margin-bottom: 8px; color: #1e3a8a; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
+            .markdown-content h3 { font-size: 12px; font-weight: 800; text-transform: uppercase; margin-top: 12px; margin-bottom: 6px; color: #475569; }
+            .markdown-content p { margin-bottom: 8px; font-size: 12px; line-height: 1.5; }
+            .markdown-content ul { margin-bottom: 10px; padding-left: 15px; list-style-type: disc; }
+            .markdown-content li { margin-bottom: 4px; font-size: 12px; }
+            .markdown-content strong { color: #0f172a; font-weight: 800; }
           `}</style>
-          
-          <div className="print-header">
-             <div className="flex items-center gap-4">
-                <Activity className="w-14 h-14 text-[#1e3a8a]" />
-                <h1 className="print-title">HospFlow</h1>
-             </div>
-             <div className="text-right">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">DASHBOARD MENSAL CONSOLIDADO</p>
-                <p className="font-bold text-sm text-slate-900">{selectedReportMonth}</p>
-             </div>
-          </div>
 
-          <div className="grid grid-cols-4 gap-4 mb-8">
-             {[
-               { label: 'Total Fluxo', val: monthlyStats.total },
-               { label: 'Altas', val: monthlyStats.altas },
-               { label: 'Média Pendência', val: monthlyStats.averages.pendency + 'h' },
-               { label: 'Média Maca', val: monthlyStats.averages.stretcher + 'h' }
-             ].map(card => (
-               <div key={card.label} className="p-card p-6 rounded-[1.5rem] text-center">
-                  <p className="text-[8px] font-black text-slate-500 uppercase mb-1">{card.label}</p>
-                  <h3 className="text-2xl font-black text-blue-900">{card.val}</h3>
-               </div>
-             ))}
-          </div>
+          <table className="print-table">
+            <thead>
+              <tr>
+                <td>
+                  <div className="print-table-header-space"></div>
+                </td>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <div className="print-content">
+                    <div className="grid grid-cols-4 gap-4 mb-8">
+                       {[
+                         { label: 'Total Fluxo', val: monthlyStats.total },
+                         { label: 'Altas', val: monthlyStats.altas },
+                         { label: 'Média Pendência', val: monthlyStats.averages.pendency + 'h' },
+                         { label: 'Média Maca', val: monthlyStats.averages.stretcher + 'h' }
+                       ].map(card => (
+                         <div key={card.label} className="p-card p-4 rounded-2xl text-center">
+                            <p className="text-[7px] font-black text-slate-500 uppercase mb-1">{card.label}</p>
+                            <h3 className="text-xl font-black text-blue-900">{card.val}</h3>
+                         </div>
+                       ))}
+                    </div>
 
-          <div className="grid grid-cols-3 gap-4 mb-8">
-             {[
-               { label: 'Média Transf. Interna', val: monthlyStats.averages.transfer + 'h' },
-               { label: 'Média Transf. UPA', val: monthlyStats.averages.upa + 'h' },
-               { label: 'Média Transf. Externa', val: monthlyStats.averages.external + 'h' }
-             ].map(card => (
-               <div key={card.label} className="p-card p-4 rounded-[1.5rem] text-center border-blue-100">
-                  <p className="text-[7px] font-black text-slate-500 uppercase mb-1">{card.label}</p>
-                  <h3 className="text-lg font-black text-indigo-900">{card.val}</h3>
-               </div>
-             ))}
-          </div>
+                    <div className="grid grid-cols-3 gap-4 mb-8">
+                       {[
+                         { label: 'Média Transf. Interna', val: monthlyStats.averages.transfer + 'h' },
+                         { label: 'Média Transf. UPA', val: monthlyStats.averages.upa + 'h' },
+                         { label: 'Média Transf. Externa', val: monthlyStats.averages.external + 'h' }
+                       ].map(card => (
+                         <div key={card.label} className="p-card p-3 rounded-2xl text-center border-blue-100">
+                            <p className="text-[6px] font-black text-slate-500 uppercase mb-1">{card.label}</p>
+                            <h3 className="text-base font-black text-indigo-900">{card.val}</h3>
+                         </div>
+                       ))}
+                    </div>
 
-          <div className="grid grid-cols-2 gap-8 mb-8">
-             <div className="border border-slate-200 rounded-[2.5rem] p-8 bg-slate-50/20">
-                <h4 className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-6">Demanda por Especialidade</h4>
-                <div className="space-y-2">
-                   {monthlyStats.specialtyData.slice(0, 8).map(s => (
-                     <div key={s.name} className="flex justify-between items-center text-[10px] font-bold border-b border-slate-100 pb-2">
-                        <span className="text-slate-600 uppercase">{s.name}</span>
-                        <div className="text-right">
-                          <span className="text-blue-900 font-black">{s.value} pac.</span>
-                          <span className="text-slate-400 ml-2">({s.avg}h pend.)</span>
-                        </div>
-                     </div>
-                   ))}
-                </div>
-             </div>
+                    <div className="grid grid-cols-2 gap-8 mb-8">
+                       <div className="border border-slate-200 rounded-3xl p-6 bg-slate-50/10">
+                          <h4 className="text-[9px] font-black text-slate-800 uppercase tracking-widest mb-4">Demanda por Especialidade</h4>
+                          <div className="space-y-1.5">
+                             {monthlyStats.specialtyData.slice(0, 10).map(s => (
+                               <div key={s.name} className="flex justify-between items-center text-[9px] font-bold border-b border-slate-100 pb-1.5">
+                                  <span className="text-slate-600 uppercase">{s.name}</span>
+                                  <div className="text-right">
+                                    <span className="text-blue-900 font-black">{s.value} pac.</span>
+                                    <span className="text-slate-400 ml-2">({s.avgPendency}h pend.)</span>
+                                  </div>
+                               </div>
+                             ))}
+                          </div>
+                       </div>
 
-             <div className="border border-slate-200 rounded-[2.5rem] p-8 bg-slate-50/20">
-                <h4 className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-6">Análise de Pendências</h4>
-                <div className="space-y-2">
-                   {monthlyStats.pendencyData.slice(0, 8).map(p => (
-                     <div key={p.name} className="flex justify-between items-center text-[10px] font-bold border-b border-slate-100 pb-2">
-                        <span className="text-slate-600 uppercase truncate max-w-[150px]">{p.name}</span>
-                        <div className="text-right">
-                          <span className="text-amber-700 font-black">{p.count} casos</span>
-                          <span className="text-slate-400 ml-2">({p.avg}h res.)</span>
-                        </div>
-                     </div>
-                   ))}
-                </div>
-             </div>
-          </div>
+                       <div className="border border-slate-200 rounded-3xl p-6 bg-slate-50/10">
+                          <h4 className="text-[9px] font-black text-slate-800 uppercase tracking-widest mb-4">Análise de Pendências</h4>
+                          <div className="space-y-1.5">
+                             {monthlyStats.pendencyData.slice(0, 10).map(p => (
+                               <div key={p.name} className="flex justify-between items-center text-[9px] font-bold border-b border-slate-100 pb-1.5">
+                                  <span className="text-slate-600 uppercase truncate max-w-[120px]">{p.name}</span>
+                                  <div className="text-right">
+                                    <span className="text-amber-700 font-black">{p.count} casos</span>
+                                    <span className="text-slate-400 ml-2">({p.avg}h res.)</span>
+                                  </div>
+                               </div>
+                             ))}
+                          </div>
+                       </div>
+                    </div>
 
-          <section className="bg-slate-900 text-white p-10 rounded-[3rem] shadow-xl flex-1">
-             <div className="flex items-center gap-4 mb-6">
-                <Sparkles className="w-6 h-6 text-amber-400" />
-                <h3 className="text-xs font-black uppercase tracking-widest">Análise de Performance Mensal (IA)</h3>
-             </div>
-             <p className="text-[13px] font-bold leading-relaxed text-blue-100 text-justify italic">
-                "{aiAnalysis || "Gerando relatório consolidado..."}"
-             </p>
-          </section>
-
-          <footer className="print-footer">
-             <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                HospFlow • Sistema de Gestão Estratégica
-             </div>
-             <div className="flex items-center gap-2">
-                <div className="flex flex-col items-center justify-center w-10 h-10">
-                  <div className="relative">
-                    <Stethoscope className="w-7 h-7 text-emerald-600" />
-                    <div className="absolute -top-1 -right-1">
-                      <Sparkles className="w-3 h-3 text-yellow-500 fill-yellow-500" />
+                    <div className="markdown-content text-slate-800">
+                       {aiAnalysis ? (
+                         <ReactMarkdown>{aiAnalysis}</ReactMarkdown>
+                       ) : (
+                         <p className="italic text-slate-400">Gerando relatório consolidado...</p>
+                       )}
                     </div>
                   </div>
-                  <span className="text-[7px] font-black text-slate-900 mt-0.5">MA</span>
-                </div>
+                </td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr>
+                <td>
+                  <div className="print-table-footer-space"></div>
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+
+          {/* Fixed Header */}
+          <div className="print-header no-print-screen">
+             <div className="flex items-center gap-3">
+                <Activity className="w-10 h-10 text-[#1e3a8a]" />
+                <h1 className="print-title-small">HospFlow</h1>
              </div>
-          </footer>
+             <div className="text-right">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Dashboard Mensal Consolidado</p>
+                <p className="font-bold text-xs text-slate-900">{selectedReportMonth}</p>
+             </div>
+          </div>
+
+          {/* Fixed Footer */}
+          <div className="print-footer no-print-screen">
+             <div className="font-black uppercase tracking-widest">
+                HospFlow • Gestão de Fluxo Hospitalar
+             </div>
+             <div className="flex items-center gap-4">
+                <span className="font-bold">{new Date().toLocaleDateString('pt-BR')}</span>
+                <span className="page-number font-black"></span>
+             </div>
+          </div>
         </div>
       )}
     </div>

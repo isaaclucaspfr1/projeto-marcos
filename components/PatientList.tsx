@@ -19,6 +19,7 @@ import {
   AlertCircle,
   CheckSquare,
   LogOut,
+  UserMinus,
   Clock,
   Accessibility,
   Syringe,
@@ -113,11 +114,11 @@ const PatientCard = React.memo(({
 
       <div className="flex items-center justify-between border-t border-slate-50 pt-3">
          <div className="flex gap-2">
-            {p.hasAllergy && <ShieldAlert className="w-4 h-4 text-purple-600" title="Alergia" />}
-            {(!p.hasBracelet || !p.hasBedIdentification) && <AlertTriangle className="w-4 h-4 text-red-600" title="Identificação Pendente" />}
-            {(p.isTransferRequested || isAutoTransfer) && <Activity className={`w-4 h-4 animate-pulse ${isAutoTransfer ? 'text-red-600' : 'text-orange-500'}`} title="Transferência Solicitada" />}
-            {p.hasLesion && <Activity className="w-4 h-4 text-orange-600" title="Lesão Cutânea" />}
-            {venousExpired && <Syringe className="w-4 h-4 text-red-600 animate-pulse" title="Acesso Venoso Vencido" />}
+            {p.hasAllergy && <ShieldAlert className="w-4 h-4 text-purple-600" />}
+            {(!p.hasBracelet || !p.hasBedIdentification) && <AlertTriangle className="w-4 h-4 text-red-600" />}
+            {(p.isTransferRequested || isAutoTransfer) && <Activity className={`w-4 h-4 animate-pulse ${isAutoTransfer ? 'text-red-600' : 'text-orange-500'}`} />}
+            {p.hasLesion && <Activity className="w-4 h-4 text-orange-600" />}
+            {venousExpired && <Syringe className="w-4 h-4 text-red-600 animate-pulse" />}
          </div>
          <div className="flex flex-col items-end">
             <div className="flex items-center gap-1 text-[8px] font-black text-slate-400 uppercase tracking-tighter mb-1 opacity-70">
@@ -207,6 +208,18 @@ const PatientList: React.FC<PatientListProps> = ({ patients, role, onDeletePatie
     }
   }, [isAuthorized, selectedIds, onUpdatePatients]);
 
+  const handleBulkEvasao = useCallback(() => {
+    if (!isAuthorized || selectedIds.length === 0) return;
+    if (confirm(`Deseja registrar EVASÃO para os ${selectedIds.length} pacientes?`)) {
+      onUpdatePatients(selectedIds, { 
+        status: 'Evasão', 
+        isTransferred: true, 
+        transferredAt: new Date().toISOString() 
+      });
+      setSelectedIds([]);
+    }
+  }, [isAuthorized, selectedIds, onUpdatePatients]);
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-3xl border border-slate-200 shadow-sm no-print">
@@ -243,6 +256,7 @@ const PatientList: React.FC<PatientListProps> = ({ patients, role, onDeletePatie
           <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-[10px] font-black">{selectedIds.length} selecionado(s)</span>
           <div className="flex gap-2">
             <button onClick={handleBulkAlta} disabled={!isAuthorized} className="px-4 py-2 bg-blue-600 text-white rounded-xl font-black text-[10px] uppercase flex items-center gap-2"><LogOut className="w-4 h-4" /> Alta</button>
+            <button onClick={handleBulkEvasao} disabled={!isAuthorized} className="px-4 py-2 bg-amber-600 text-white rounded-xl font-black text-[10px] uppercase flex items-center gap-2"><UserMinus className="w-4 h-4" /> Evasão</button>
             {isAuthorized && <button onClick={handleBulkDelete} className="px-4 py-2 bg-red-600 text-white rounded-xl font-black text-[10px] uppercase flex items-center gap-2"><Trash2 className="w-4 h-4" /> Excluir</button>}
           </div>
         </div>
@@ -268,39 +282,156 @@ const PatientList: React.FC<PatientListProps> = ({ patients, role, onDeletePatie
                 <div className="w-16 h-16 bg-white/20 rounded-3xl flex items-center justify-center"><User className="w-10 h-10" /></div>
                 <div>
                    <h3 className="text-xl md:text-3xl font-black uppercase tracking-tight">{activePatient.name}</h3>
-                   <div className="flex gap-4 mt-2">
-                     <span className="text-white/80 font-black uppercase text-[10px] tracking-widest">Prontuário: {activePatient.medicalRecord}</span>
-                     <span className="text-white/80 font-black uppercase text-[10px] tracking-widest">Idade: {activePatient.age}</span>
+                   {activePatient.socialName && (
+                     <p className="text-white/70 font-black uppercase text-xs tracking-widest mt-1">Nome Social: {activePatient.socialName}</p>
+                   )}
+                   <div className="flex flex-wrap gap-4 mt-2">
+                     <span className="text-white/80 font-black uppercase text-[10px] tracking-widest bg-white/10 px-2 py-1 rounded-lg">Prontuário: {activePatient.medicalRecord}</span>
+                     <span className="text-white/80 font-black uppercase text-[10px] tracking-widest bg-white/10 px-2 py-1 rounded-lg">Idade: {activePatient.age} anos</span>
+                     <span className="text-white/80 font-black uppercase text-[10px] tracking-widest bg-white/10 px-2 py-1 rounded-lg">Sexo: {activePatient.sex}</span>
                    </div>
                 </div>
               </div>
               <button onClick={() => setActivePatient(null)} className="p-3 hover:bg-white/20 rounded-full transition-all active:scale-90"><X className="w-8 h-8" /></button>
             </div>
-            <div className="p-6 overflow-y-auto flex-1 bg-slate-50/50">
-               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  <div className="space-y-4">
-                     <div className="flex items-center gap-2 border-l-4 border-blue-600 pl-3">
-                        <MapPin className="w-5 h-5 text-blue-600" />
-                        <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Localização</h4>
-                     </div>
-                     <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-white p-5 rounded-3xl border border-slate-200">
-                           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Setor</p>
-                           <p className="font-bold text-slate-800 text-sm uppercase">{activePatient.corridor}</p>
+            <div className="p-6 overflow-y-auto flex-1 bg-slate-50/50 space-y-8">
+               {/* ALERTAS CRÍTICOS */}
+               {(activePatient.hasAllergy || activePatient.hasLesion || !activePatient.hasBracelet || !activePatient.hasBedIdentification || activePatient.pendencies !== 'Nenhuma') && (
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {activePatient.hasAllergy && (
+                      <div className="bg-purple-100 border-2 border-purple-300 p-4 rounded-3xl flex items-center gap-4 animate-pulse">
+                        <ShieldAlert className="w-8 h-8 text-purple-600" />
+                        <div>
+                          <p className="text-[10px] font-black text-purple-700 uppercase tracking-widest">Alergia Detectada</p>
+                          <p className="font-black text-purple-900 uppercase text-sm">{activePatient.allergyDetails || 'SIM'}</p>
                         </div>
-                        <div className="bg-white p-5 rounded-3xl border border-slate-200">
-                           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Situação</p>
-                           <p className="font-bold text-slate-800 text-sm uppercase">{activePatient.situation}</p>
+                      </div>
+                    )}
+                    {activePatient.hasLesion && (
+                      <div className="bg-orange-100 border-2 border-orange-300 p-4 rounded-3xl flex items-center gap-4">
+                        <Activity className="w-8 h-8 text-orange-600" />
+                        <div>
+                          <p className="text-[10px] font-black text-orange-700 uppercase tracking-widest">Lesão Cutânea</p>
+                          <p className="font-black text-orange-900 uppercase text-sm">{activePatient.lesionDescription || 'SIM'}</p>
+                        </div>
+                      </div>
+                    )}
+                    {!activePatient.hasBracelet && (
+                      <div className="bg-red-100 border-2 border-red-300 p-4 rounded-3xl flex items-center gap-4">
+                        <AlertTriangle className="w-8 h-8 text-red-600" />
+                        <div>
+                          <p className="text-[10px] font-black text-red-700 uppercase tracking-widest">Segurança</p>
+                          <p className="font-black text-red-900 uppercase text-sm">Sem Pulseira de Identificação</p>
+                        </div>
+                      </div>
+                    )}
+                    {!activePatient.hasBedIdentification && (
+                      <div className="bg-red-100 border-2 border-red-300 p-4 rounded-3xl flex items-center gap-4">
+                        <AlertTriangle className="w-8 h-8 text-red-600" />
+                        <div>
+                          <p className="text-[10px] font-black text-red-700 uppercase tracking-widest">Segurança</p>
+                          <p className="font-black text-red-900 uppercase text-sm">Sem Identificação de Leito</p>
+                        </div>
+                      </div>
+                    )}
+                    {activePatient.pendencies !== 'Nenhuma' && (
+                      <div className="bg-amber-100 border-2 border-amber-300 p-4 rounded-3xl flex items-center gap-4">
+                        <Clock className="w-8 h-8 text-amber-600" />
+                        <div>
+                          <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Pendência Atual</p>
+                          <p className="font-black text-amber-900 uppercase text-sm">{activePatient.pendencies}</p>
+                        </div>
+                      </div>
+                    )}
+                 </div>
+               )}
+
+               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* COLUNA 1: LOCALIZAÇÃO E STATUS */}
+                  <div className="space-y-6">
+                     <div className="space-y-4">
+                        <div className="flex items-center gap-2 border-l-4 border-blue-600 pl-3">
+                           <MapPin className="w-5 h-5 text-blue-600" />
+                           <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Localização e Fluxo</h4>
+                        </div>
+                        <div className="space-y-3">
+                           <div className="bg-white p-4 rounded-2xl border border-slate-200">
+                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Setor / Corredor</p>
+                              <p className="font-bold text-slate-800 text-xs uppercase">{activePatient.corridor}</p>
+                           </div>
+                           <div className="bg-white p-4 rounded-2xl border border-slate-200">
+                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Situação</p>
+                              <p className="font-bold text-slate-800 text-xs uppercase">{activePatient.situation}</p>
+                           </div>
+                           <div className="bg-white p-4 rounded-2xl border border-slate-200">
+                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Status do Paciente</p>
+                              <p className="font-black text-blue-600 text-xs uppercase">{activePatient.status}</p>
+                           </div>
+                           <div className="bg-white p-4 rounded-2xl border border-slate-200">
+                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Especialidade</p>
+                              <p className="font-bold text-slate-800 text-xs uppercase">{activePatient.specialty}</p>
+                           </div>
+                           <div className="bg-white p-4 rounded-2xl border border-slate-200">
+                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Possui AIH?</p>
+                              <p className={`font-black text-xs uppercase ${activePatient.hasAIH ? 'text-emerald-600' : 'text-red-600'}`}>{activePatient.hasAIH ? 'SIM' : 'NÃO'}</p>
+                           </div>
                         </div>
                      </div>
                   </div>
-                  <div className="space-y-4">
-                     <div className="flex items-center gap-2 border-l-4 border-indigo-600 pl-3">
-                        <Activity className="w-5 h-5 text-indigo-600" />
-                        <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Diagnóstico</h4>
+
+                  {/* COLUNA 2: DADOS CLÍNICOS */}
+                  <div className="space-y-6">
+                     <div className="space-y-4">
+                        <div className="flex items-center gap-2 border-l-4 border-indigo-600 pl-3">
+                           <Activity className="w-5 h-5 text-indigo-600" />
+                           <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Dados Clínicos</h4>
+                        </div>
+                        <div className="space-y-3">
+                           <div className="bg-white p-4 rounded-2xl border border-slate-200">
+                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Diagnóstico Principal</p>
+                              <p className="font-black text-slate-800 text-xs uppercase leading-tight">{activePatient.diagnosis || 'NÃO INFORMADO'}</p>
+                           </div>
+                           <div className="bg-white p-4 rounded-2xl border border-slate-200">
+                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Mobilidade</p>
+                              <p className="font-bold text-slate-800 text-xs uppercase">{activePatient.mobility}</p>
+                           </div>
+                           <div className="bg-white p-4 rounded-2xl border border-slate-200">
+                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Acesso Venoso</p>
+                              <p className="font-bold text-slate-800 text-xs uppercase">{activePatient.venousAccess || 'NÃO INFORMADO'}</p>
+                           </div>
+                        </div>
                      </div>
-                     <div className="bg-white p-5 rounded-3xl border border-slate-200">
-                        <p className="font-black text-slate-800 text-base uppercase leading-tight">{activePatient.diagnosis || 'NÃO INFORMADO'}</p>
+                  </div>
+
+                  {/* COLUNA 3: PRESCRIÇÃO E DIETA */}
+                  <div className="space-y-6">
+                     <div className="space-y-4">
+                        <div className="flex items-center gap-2 border-l-4 border-emerald-600 pl-3">
+                           <Stethoscope className="w-5 h-5 text-emerald-600" />
+                           <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Assistência</h4>
+                        </div>
+                        <div className="space-y-3">
+                           <div className={`p-4 rounded-2xl border ${activePatient.hasPrescription ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
+                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Prescrição Médica</p>
+                              <p className={`font-black text-xs uppercase ${activePatient.hasPrescription ? 'text-emerald-700' : 'text-red-700'}`}>{activePatient.hasPrescription ? 'VÁLIDA / ATIVA' : 'AUSENTE / VENCIDA'}</p>
+                           </div>
+                           <div className="bg-white p-4 rounded-2xl border border-slate-200">
+                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Dieta</p>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                 {activePatient.diet && activePatient.diet.length > 0 ? (
+                                   activePatient.diet.map(d => (
+                                     <span key={d} className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[9px] font-black uppercase">{d}</span>
+                                   ))
+                                 ) : (
+                                   <span className="text-slate-400 text-[9px] font-black uppercase italic">NÃO INFORMADA</span>
+                                 )}
+                              </div>
+                           </div>
+                           <div className="bg-white p-4 rounded-2xl border border-slate-200">
+                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Observações / Notas</p>
+                              <p className="text-slate-600 text-[10px] font-bold uppercase leading-relaxed whitespace-pre-wrap">{activePatient.notes || 'SEM OBSERVAÇÕES'}</p>
+                           </div>
+                        </div>
                      </div>
                   </div>
                </div>
@@ -309,9 +440,58 @@ const PatientList: React.FC<PatientListProps> = ({ patients, role, onDeletePatie
                   <p>POR: <span className="text-blue-600">{activePatient.createdBy}</span></p>
                </footer>
             </div>
-            <div className="p-6 bg-white border-t border-slate-100 flex gap-4">
-               <button onClick={() => { onEdit(activePatient); setActivePatient(null); }} className="flex-1 py-4 bg-white border-2 border-slate-900 text-slate-900 font-black rounded-3xl uppercase text-xs tracking-widest">Editar</button>
-               <button onClick={() => setActivePatient(null)} className="flex-[2] py-4 bg-blue-700 text-white font-black rounded-3xl shadow-xl uppercase text-xs tracking-widest">Concluir</button>
+            <div className="p-6 bg-white border-t border-slate-100 flex flex-wrap gap-4">
+               <button onClick={() => { onEdit(activePatient); setActivePatient(null); }} className="flex-1 min-w-[120px] py-4 bg-white border-2 border-slate-900 text-slate-900 font-black rounded-3xl uppercase text-xs tracking-widest">Editar</button>
+               
+               {isAuthorized && (
+                 <>
+                   <button 
+                     onClick={() => {
+                       if (confirm('Confirmar ALTA deste paciente?')) {
+                         onUpdatePatients([activePatient.id], { 
+                           status: 'Alta', 
+                           isTransferred: true, 
+                           transferredAt: new Date().toISOString() 
+                         });
+                         setActivePatient(null);
+                       }
+                     }} 
+                     className="flex-1 min-w-[120px] py-4 bg-blue-600 text-white font-black rounded-3xl shadow-lg uppercase text-xs tracking-widest flex items-center justify-center gap-2"
+                   >
+                     <LogOut className="w-4 h-4" /> Alta
+                   </button>
+                   
+                   <button 
+                     onClick={() => {
+                       if (confirm('Confirmar EVASÃO deste paciente?')) {
+                         onUpdatePatients([activePatient.id], { 
+                           status: 'Evasão', 
+                           isTransferred: true, 
+                           transferredAt: new Date().toISOString() 
+                         });
+                         setActivePatient(null);
+                       }
+                     }} 
+                     className="flex-1 min-w-[120px] py-4 bg-amber-600 text-white font-black rounded-3xl shadow-lg uppercase text-xs tracking-widest flex items-center justify-center gap-2"
+                   >
+                     <UserMinus className="w-4 h-4" /> Evasão
+                   </button>
+                   
+                   <button 
+                     onClick={() => {
+                       if (confirm('Deseja EXCLUIR permanentemente este registro?')) {
+                         onDeletePatients([activePatient.id]);
+                         setActivePatient(null);
+                       }
+                     }} 
+                     className="flex-1 min-w-[120px] py-4 bg-red-600 text-white font-black rounded-3xl shadow-lg uppercase text-xs tracking-widest flex items-center justify-center gap-2"
+                   >
+                     <Trash2 className="w-4 h-4" /> Excluir
+                   </button>
+                 </>
+               )}
+               
+               <button onClick={() => setActivePatient(null)} className="flex-1 min-w-[120px] py-4 bg-slate-900 text-white font-black rounded-3xl shadow-xl uppercase text-xs tracking-widest">Fechar</button>
             </div>
           </div>
         </div>
