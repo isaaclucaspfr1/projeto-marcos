@@ -9,13 +9,9 @@ import { fileURLToPath } from "url";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import fs from "fs";
-import dotenv from "dotenv";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-dotenv.config({ path: path.join(__dirname, ".env.local") });
-dotenv.config();
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -109,6 +105,7 @@ async function startServer() {
       const result = await pool.query("SELECT data FROM patients");
       res.json(result.rows.map(r => JSON.parse(r.data)));
     } catch (err) {
+      console.error("Error fetching patients:", err);
       res.status(500).json({ error: (err as Error).message });
     }
   });
@@ -116,11 +113,44 @@ async function startServer() {
   app.post("/api/patients", async (req, res) => {
     try {
       const patient = req.body;
-      await pool.query("INSERT INTO patients (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data", [patient.id, JSON.stringify(patient)]);
+      if (!patient.id) return res.status(400).json({ error: "Missing patient ID" });
+      
+      await pool.query(
+        "INSERT INTO patients (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data", 
+        [patient.id, JSON.stringify(patient)]
+      );
+      
       io.emit("patient_updated", patient);
       res.json({ success: true });
     } catch (err) {
+      console.error("Error saving patient:", err);
       res.status(500).json({ error: (err as Error).message });
+    }
+  });
+
+  app.post("/api/patients/bulk", async (req, res) => {
+    const client = await pool.connect();
+    try {
+      const patients = req.body.patients;
+      if (!Array.isArray(patients)) return res.status(400).json({ error: "Patients must be an array" });
+      
+      await client.query('BEGIN');
+      for (const patient of patients) {
+        await client.query(
+          "INSERT INTO patients (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data", 
+          [patient.id, JSON.stringify(patient)]
+        );
+      }
+      await client.query('COMMIT');
+      
+      io.emit("patients_bulk_updated", patients);
+      res.json({ success: true });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      console.error("Error bulk saving patients:", err);
+      res.status(500).json({ error: (err as Error).message });
+    } finally {
+      client.release();
     }
   });
 
@@ -166,11 +196,44 @@ async function startServer() {
   app.post("/api/lean-patients", async (req, res) => {
     try {
       const patient = req.body;
-      await pool.query("INSERT INTO lean_patients (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data", [patient.id, JSON.stringify(patient)]);
+      if (!patient.id) return res.status(400).json({ error: "Missing patient ID" });
+      
+      await pool.query(
+        "INSERT INTO lean_patients (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data", 
+        [patient.id, JSON.stringify(patient)]
+      );
+      
       io.emit("lean_patient_updated", patient);
       res.json({ success: true });
     } catch (err) {
+      console.error("Error saving lean patient:", err);
       res.status(500).json({ error: (err as Error).message });
+    }
+  });
+
+  app.post("/api/lean-patients/bulk", async (req, res) => {
+    const client = await pool.connect();
+    try {
+      const patients = req.body.patients;
+      if (!Array.isArray(patients)) return res.status(400).json({ error: "Patients must be an array" });
+      
+      await client.query('BEGIN');
+      for (const patient of patients) {
+        await client.query(
+          "INSERT INTO lean_patients (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data", 
+          [patient.id, JSON.stringify(patient)]
+        );
+      }
+      await client.query('COMMIT');
+      
+      io.emit("lean_patients_bulk_updated", patients);
+      res.json({ success: true });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      console.error("Error bulk saving lean patients:", err);
+      res.status(500).json({ error: (err as Error).message });
+    } finally {
+      client.release();
     }
   });
 
@@ -197,11 +260,44 @@ async function startServer() {
   app.post("/api/collaborators", async (req, res) => {
     try {
       const collab = req.body;
-      await pool.query("INSERT INTO collaborators (id, login, data) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET login = EXCLUDED.login, data = EXCLUDED.data", [collab.id, collab.login, JSON.stringify(collab)]);
+      if (!collab.id) return res.status(400).json({ error: "Missing collaborator ID" });
+      
+      await pool.query(
+        "INSERT INTO collaborators (id, login, data) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET login = EXCLUDED.login, data = EXCLUDED.data", 
+        [collab.id, collab.login, JSON.stringify(collab)]
+      );
+      
       io.emit("collaborator_updated", collab);
       res.json({ success: true });
     } catch (err) {
+      console.error("Error saving collaborator:", err);
       res.status(500).json({ error: (err as Error).message });
+    }
+  });
+
+  app.post("/api/collaborators/bulk", async (req, res) => {
+    const client = await pool.connect();
+    try {
+      const collaborators = req.body.collaborators;
+      if (!Array.isArray(collaborators)) return res.status(400).json({ error: "Collaborators must be an array" });
+      
+      await client.query('BEGIN');
+      for (const collab of collaborators) {
+        await client.query(
+          "INSERT INTO collaborators (id, login, data) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET login = EXCLUDED.login, data = EXCLUDED.data", 
+          [collab.id, collab.login, JSON.stringify(collab)]
+        );
+      }
+      await client.query('COMMIT');
+      
+      io.emit("collaborators_bulk_updated", collaborators);
+      res.json({ success: true });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      console.error("Error bulk saving collaborators:", err);
+      res.status(500).json({ error: (err as Error).message });
+    } finally {
+      client.release();
     }
   });
 

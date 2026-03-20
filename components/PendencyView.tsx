@@ -66,12 +66,12 @@ const PendencyView: React.FC<PendencyViewProps> = ({ patients, onUpdatePatient, 
 
   const handleFinalizeAlta = (p: Patient) => {
     onUpdatePatient(p.id, { 
+      status: 'Alta',
       isTransferred: true, 
       transferredAt: new Date().toISOString() 
     });
     alert(`Paciente ${p.name} finalizado com sucesso! Alta confirmada.`);
     // Opcional: Redirecionar para finalizados
-    window.dispatchEvent(new CustomEvent('change-view', { detail: 'FINALIZED_PATIENTS' }));
   };
 
   const Card = ({ title, icon: Icon, color, items, safety }: { title: string, icon: any, color: string, items: Patient[], safety?: boolean }) => (
@@ -113,7 +113,9 @@ const PendencyView: React.FC<PendencyViewProps> = ({ patients, onUpdatePatient, 
                        </span>
                     )}
                     <span className={`text-[9px] font-black uppercase italic leading-tight ${isAlta && needsSocial ? 'text-red-600 animate-pulse' : (p.pendencies === 'Sem dieta' || p.pendencies === 'Sem prescrição médica' ? 'text-indigo-600' : 'text-blue-600')}`}>
-                      {isAlta && needsSocial ? 'DE ALTA AGUARDANDO ASSISTENTE SOCIAL' : (isAlta && !needsSocial ? 'AGUARDANDO FINALIZAÇÃO DE ALTA' : p.pendencies.toUpperCase())}
+                      {title === 'Reavaliações' 
+                        ? p.specialty.toUpperCase() 
+                        : (isAlta && needsSocial ? 'DE ALTA AGUARDANDO ASSISTENTE SOCIAL' : (isAlta && !needsSocial ? 'AGUARDANDO FINALIZAÇÃO DE ALTA' : p.pendencies.toUpperCase()))}
                     </span>
                   </div>
                 )}
@@ -145,7 +147,6 @@ const PendencyView: React.FC<PendencyViewProps> = ({ patients, onUpdatePatient, 
                        setSolvingTransferId(null);
                        setTransferDestination('');
                        alert(`Paciente ${p.name} transferido com sucesso!`);
-                       window.dispatchEvent(new CustomEvent('change-view', { detail: 'FINALIZED_PATIENTS' }));
                      }} 
                      className="flex-1 py-2 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase shadow-lg"
                    >
@@ -167,7 +168,7 @@ const PendencyView: React.FC<PendencyViewProps> = ({ patients, onUpdatePatient, 
                      }}
                      className="w-full py-2 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase shadow-md"
                    >
-                     Internação
+                     Internado
                    </button>
                    <button
                      onClick={() => {
@@ -230,7 +231,7 @@ const PendencyView: React.FC<PendencyViewProps> = ({ patients, onUpdatePatient, 
                       handleFinalizeAlta(p);
                     } else if (p.pendencies === 'Transferência UPA' || p.pendencies === 'Transferência Externo') {
                       setSolvingTransferId(p.id);
-                    } else if (p.pendencies === 'Reavaliação médica') {
+                    } else if (p.pendencies === 'Reavaliação médica' || p.status === 'Reavaliação') {
                       setSolvingReevaluationId(p.id);
                     } else if (p.pendencies === 'Sem dieta') {
                       setSolvingDietId(p.id);
@@ -241,7 +242,7 @@ const PendencyView: React.FC<PendencyViewProps> = ({ patients, onUpdatePatient, 
                     }
                   }} className={`w-full py-2 text-white rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 ${isAlta ? 'bg-blue-600 hover:bg-blue-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}>
                       {isAlta ? <LogOut className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                      {isAlta ? 'Finalizar Alta' : (safety ? 'Identificado' : (p.pendencies === 'Transferência UPA' || p.pendencies === 'Transferência Externo' || p.pendencies === 'Reavaliação médica' ? 'Concluir' : 'Concluído'))}
+                      {isAlta ? 'Finalizar Alta' : (safety ? 'Identificado' : (p.pendencies === 'Transferência UPA' || p.pendencies === 'Transferência Externo' || p.pendencies === 'Reavaliação médica' || p.status === 'Reavaliação' ? 'Concluído' : 'Concluído'))}
                   </button>
                </div>
              )}

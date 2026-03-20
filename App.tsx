@@ -56,13 +56,16 @@ const MALogo = React.memo(({ size = "w-14 h-14" }: { size?: string }) => (
 const api = {
   getPatients: () => fetch('/api/patients').then(r => r.json()),
   savePatient: (p: Patient) => fetch('/api/patients', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p) }),
+  bulkSavePatients: (patients: Patient[]) => fetch('/api/patients/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ patients }) }),
   deletePatient: (id: string) => fetch(`/api/patients/${id}`, { method: 'DELETE' }),
   bulkDeletePatients: (ids: string[]) => fetch('/api/patients/bulk-delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) }),
   getLeanPatients: () => fetch('/api/lean-patients').then(r => r.json()),
   saveLeanPatient: (p: LeanPatient) => fetch('/api/lean-patients', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p) }),
+  bulkSaveLeanPatients: (patients: LeanPatient[]) => fetch('/api/lean-patients/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ patients }) }),
   deleteLeanPatient: (id: string) => fetch(`/api/lean-patients/${id}`, { method: 'DELETE' }),
   getCollaborators: () => fetch('/api/collaborators').then(r => r.json()),
   saveCollaborator: (c: Collaborator) => fetch('/api/collaborators', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(c) }),
+  bulkSaveCollaborators: (collaborators: Collaborator[]) => fetch('/api/collaborators/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ collaborators }) }),
   deleteCollaborator: (id: string) => fetch(`/api/collaborators/${id}`, { method: 'DELETE' }),
 };
 
@@ -97,11 +100,30 @@ const App: React.FC = () => {
   const [showPendencyReminder, setShowPendencyReminder] = useState(false);
   const hasCheckedOnLogin = React.useRef(false);
 
+  const loadData = useCallback(async () => {
+    try {
+      const [p, lp, c] = await Promise.all([
+        api.getPatients(),
+        api.getLeanPatients(),
+        api.getCollaborators()
+      ]);
+      setPatients(p);
+      setLeanPatients(lp);
+      setCollaborators(c);
+    } catch (e) {
+      console.error("Erro ao carregar dados do servidor:", e);
+    }
+  }, []);
+
   // Configuração do Socket.io
   useEffect(() => {
     const socket: Socket = io();
 
-    socket.on('connect', () => setIsConnected(true));
+    socket.on('connect', () => {
+      setIsConnected(true);
+      // Ao reconectar, recarregar dados para garantir sincronia
+      loadData();
+    });
     socket.on('disconnect', () => setIsConnected(false));
 
     socket.on('patient_updated', (updatedPatient: Patient) => {
@@ -111,6 +133,18 @@ const App: React.FC = () => {
           return prev.map(p => p.id === updatedPatient.id ? updatedPatient : p).sort((a, b) => a.name.localeCompare(b.name));
         }
         return [updatedPatient, ...prev].sort((a, b) => a.name.localeCompare(b.name));
+      });
+    });
+
+    socket.on('patients_bulk_updated', (updatedPatients: Patient[]) => {
+      setPatients(prev => {
+        const newList = [...prev];
+        updatedPatients.forEach(up => {
+          const index = newList.findIndex(p => p.id === up.id);
+          if (index !== -1) newList[index] = up;
+          else newList.push(up);
+        });
+        return newList.sort((a, b) => a.name.localeCompare(b.name));
       });
     });
 
@@ -132,6 +166,18 @@ const App: React.FC = () => {
       });
     });
 
+    socket.on('lean_patients_bulk_updated', (updatedPatients: LeanPatient[]) => {
+      setLeanPatients(prev => {
+        const newList = [...prev];
+        updatedPatients.forEach(up => {
+          const index = newList.findIndex(p => p.id === up.id);
+          if (index !== -1) newList[index] = up;
+          else newList.push(up);
+        });
+        return newList;
+      });
+    });
+
     socket.on('lean_patient_deleted', (id: string) => {
       setLeanPatients(prev => prev.filter(p => p.id !== id));
     });
@@ -146,6 +192,18 @@ const App: React.FC = () => {
       });
     });
 
+    socket.on('collaborators_bulk_updated', (updatedCollabs: Collaborator[]) => {
+      setCollaborators(prev => {
+        const newList = [...prev];
+        updatedCollabs.forEach(uc => {
+          const index = newList.findIndex(c => c.id === uc.id);
+          if (index !== -1) newList[index] = uc;
+          else newList.push(uc);
+        });
+        return newList;
+      });
+    });
+
     socket.on('collaborator_deleted', (id: string) => {
       setCollaborators(prev => prev.filter(c => c.id !== id));
     });
@@ -153,26 +211,12 @@ const App: React.FC = () => {
     return () => {
       socket.disconnect();
     };
-  }, []);
+  }, [loadData]);
 
   // Carregar dados iniciais do banco de dados
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [p, lp, c] = await Promise.all([
-          api.getPatients(),
-          api.getLeanPatients(),
-          api.getCollaborators()
-        ]);
-        setPatients(p);
-        setLeanPatients(lp);
-        setCollaborators(c);
-      } catch (e) {
-        console.error("Erro ao carregar dados do servidor:", e);
-      }
-    };
     loadData();
-  }, []);
+  }, [loadData]);
 
   // Sistema de Lembrete de Pendências
   useEffect(() => {
@@ -319,9 +363,18 @@ const App: React.FC = () => {
       isTransferred: false,
       isNew: true
     };
+    
+    // Otimista
     setPatients(prev => [newP, ...prev].sort((a, b) => a.name.localeCompare(b.name)));
-    await api.savePatient(newP);
-  }, [user]);
+    
+    try {
+      const res = await api.savePatient(newP);
+      if (!res.ok) throw new Error("Erro ao salvar no servidor");
+    } catch (e) {
+      console.error("Erro ao adicionar paciente:", e);
+      loadData(); // Re-sincronizar
+    }
+  }, [user, loadData]);
 
   const updatePatient = useCallback(async (id: string, updates: Partial<Patient>) => {
     let updatedP: Patient | undefined;
@@ -367,11 +420,22 @@ const App: React.FC = () => {
       });
       return [...newList].sort((a, b) => a.name.localeCompare(b.name));
     });
-    if (updatedP) await api.savePatient(updatedP);
-  }, [user]);
+
+    if (updatedP) {
+      try {
+        const res = await api.savePatient(updatedP);
+        if (!res.ok) throw new Error("Erro ao salvar no servidor");
+      } catch (e) {
+        console.error("Erro ao atualizar paciente:", e);
+        loadData(); // Re-sincronizar
+      }
+    }
+  }, [user, loadData]);
 
   const updatePatients = useCallback(async (ids: string[], updates: Partial<Patient>) => {
-    const updatedList: Patient[] = [];
+    const now = new Date().toISOString();
+    const toUpdate: Patient[] = [];
+    
     setPatients(prev => {
       const newList = prev.map(p => {
         if (ids.includes(p.id)) {
@@ -379,17 +443,28 @@ const App: React.FC = () => {
             ...p, 
             ...updates, 
             lastModifiedBy: `${user?.username} - ${user?.name}`,
-            lastModifiedAt: new Date().toISOString()
+            lastModifiedAt: now
           };
-          updatedList.push(newP);
+          toUpdate.push(newP);
           return newP;
         }
         return p;
       });
       return [...newList].sort((a, b) => a.name.localeCompare(b.name));
     });
-    for (const p of updatedList) await api.savePatient(p);
-  }, [user]);
+
+    if (toUpdate.length > 0) {
+      try {
+        const res = toUpdate.length === 1 
+          ? await api.savePatient(toUpdate[0])
+          : await api.bulkSavePatients(toUpdate);
+        if (!res.ok) throw new Error("Erro ao salvar no servidor");
+      } catch (e) {
+        console.error("Erro ao atualizar pacientes em massa:", e);
+        loadData(); // Re-sincronizar
+      }
+    }
+  }, [user, loadData]);
 
   const deletePatients = useCallback(async (ids: string[]) => {
     setPatients(prev => prev.filter(p => !ids.includes(p.id)));
@@ -624,29 +699,47 @@ const App: React.FC = () => {
         setCurrentView('LEAN_LIST'); 
       }} onCancel={() => setCurrentView('LEAN_MENU')} />;
       case 'LEAN_LIST': return <LeanPatientList patients={leanPatients} onUpdate={async (newList) => {
-        // Identificar o que mudou para sincronizar com o banco
-        if (newList.length < leanPatients.length) {
-          // Deleção
-          const deleted = leanPatients.find(p => !newList.some(np => np.id === p.id));
-          if (deleted) await api.deleteLeanPatient(deleted.id);
-        } else {
-          // Adição ou Edição
-          const changed = newList.find(np => {
-            const old = leanPatients.find(p => p.id === np.id);
-            return !old || JSON.stringify(old) !== JSON.stringify(np);
-          });
-          if (changed) {
-            const enrichedChanged = {
-              ...changed,
-              lastModifiedBy: `${user?.username} - ${user?.name}`,
-              lastModifiedAt: new Date().toISOString()
-            };
-            await api.saveLeanPatient(enrichedChanged);
-            setLeanPatients(newList.map(p => p.id === enrichedChanged.id ? enrichedChanged : p));
-            return;
+        try {
+          // Identificar o que mudou para sincronizar com o banco
+          if (newList.length < leanPatients.length) {
+            // Deleção
+            const deleted = leanPatients.find(p => !newList.some(np => np.id === p.id));
+            if (deleted) {
+              await api.deleteLeanPatient(deleted.id);
+              setLeanPatients(newList);
+            }
+          } else {
+            // Adição ou Edição
+            const changed = newList.filter(np => {
+              const old = leanPatients.find(p => p.id === np.id);
+              return !old || JSON.stringify(old) !== JSON.stringify(np);
+            });
+            
+            if (changed.length > 0) {
+              const enrichedChanged = changed.map(c => ({
+                ...c,
+                lastModifiedBy: `${user?.username} - ${user?.name}`,
+                lastModifiedAt: new Date().toISOString()
+              }));
+              
+              if (enrichedChanged.length === 1) {
+                await api.saveLeanPatient(enrichedChanged[0]);
+              } else {
+                await api.bulkSaveLeanPatients(enrichedChanged);
+              }
+              
+              setLeanPatients(newList.map(p => {
+                const updated = enrichedChanged.find(ec => ec.id === p.id);
+                return updated || p;
+              }));
+            } else {
+              setLeanPatients(newList);
+            }
           }
+        } catch (e) {
+          console.error("Erro ao sincronizar pacientes Lean:", e);
+          loadData(); // Re-sincronizar
         }
-        setLeanPatients(newList);
       }} onCancel={() => setCurrentView('LEAN_MENU')} />;
       case 'LEAN_NURSE_SUMMARY': return <LeanDashboard patients={leanPatients} unit={selectedUnit || ''} onCancel={() => setCurrentView('LEAN_MENU')} />;
       case 'CHANGE_PASSWORD': return (
@@ -695,16 +788,23 @@ const App: React.FC = () => {
       case 'CLEAR_DATA': return <ClearDataView patients={patients} onDeletePatients={deletePatients} />;
       case 'COLLABORATORS': return <CollaboratorManager user={user!} collaborators={collaborators} onCancel={() => setCurrentView('MAIN_MENU')} onUpdate={async (newList) => {
         try {
-          // Sincronizar colaborador alterado ou novo
-          const changed = newList.find(nc => {
+          // Identificar todos os colaboradores que mudaram
+          const changedCollabs = newList.filter(nc => {
             const old = collaborators.find(c => c.id === nc.id);
             return !old || JSON.stringify(old) !== JSON.stringify(nc);
           });
-          if (changed) await api.saveCollaborator(changed);
+          
+          if (changedCollabs.length === 1) {
+            await api.saveCollaborator(changedCollabs[0]);
+          } else if (changedCollabs.length > 1) {
+            await api.bulkSaveCollaborators(changedCollabs);
+          }
+          
           setCollaborators(newList);
         } catch (e) {
-          console.error("Erro ao salvar colaborador:", e);
+          console.error("Erro ao salvar colaboradores:", e);
           alert("ERRO DE SINCRONIZAÇÃO: Não foi possível salvar os dados no servidor. Verifique sua conexão.");
+          loadData(); // Re-sincronizar
         }
       }} />;
       case 'ABOUT_APP': return <AboutView user={user!} onBack={() => setCurrentView('MAIN_MENU')} />;
@@ -717,21 +817,6 @@ const App: React.FC = () => {
 
   return (
     <Layout user={user!} currentView={currentView} selectedUnit={selectedUnit} onBack={() => setCurrentView('MAIN_MENU')} onLogout={handleLogout} title={currentView}>
-      {/* Indicador de Conexão */}
-      <div className="fixed top-4 right-4 z-[60] flex items-center gap-2 bg-white/80 backdrop-blur-sm px-3 py-1.5 rounded-full border border-slate-200 shadow-sm">
-        {isConnected ? (
-          <>
-            <Wifi className="w-3 h-3 text-emerald-500" />
-            <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">Sincronizado</span>
-          </>
-        ) : (
-          <>
-            <WifiOff className="w-3 h-3 text-red-500 animate-pulse" />
-            <span className="text-[9px] font-black text-red-600 uppercase tracking-widest">Desconectado</span>
-          </>
-        )}
-      </div>
-
       {renderContent()}
       
       {/* Notificação Flutuante de Pendências */}

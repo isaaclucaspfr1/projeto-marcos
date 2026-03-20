@@ -498,92 +498,172 @@ const PatientList: React.FC<PatientListProps> = ({ patients, role, onDeletePatie
       )}
 
       {/* Relatório Impresso Padronizado (HospFlow Estilo Consolidado) */}
-      <div className="hidden print:block bg-white text-slate-950 p-0 font-sans" style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '15mm' }}>
+      <div className="hidden print:block bg-white text-slate-900 font-sans">
         <style>{`
-          @page { size: A4; margin: 0; }
-          body { -webkit-print-color-adjust: exact; background: white !important; }
-          .print-header { border-bottom: 4px solid #0f172a; padding-bottom: 15px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end; }
-          .print-title { color: #1e3a8a; font-size: 36px; font-weight: 900; text-transform: uppercase; line-height: 1; letter-spacing: -1px; }
-          .print-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-          .print-table th { background-color: #f8fafc !important; border: 1.5px solid #334155; padding: 12px 8px; font-size: 10px; text-transform: uppercase; font-weight: 900; text-align: left; color: #334155; }
-          .print-table td { border: 1px solid #e2e8f0; padding: 10px 8px; font-size: 10px; font-weight: 600; color: #0f172a; }
-          .print-footer { border-top: 2px solid #e2e8f0; padding-top: 15px; margin-top: 30px; display: flex; justify-content: space-between; align-items: center; }
-        `}</style>
-        
-        <div className="print-header">
-           <div className="flex items-center gap-4">
-              <Activity className="w-14 h-14 text-[#1e3a8a]" />
-              <h1 className="print-title">HospFlow</h1>
-           </div>
-           <div className="text-right">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Censo Assistencial em Tempo Real</p>
-              <p className="font-bold text-sm text-slate-900">{new Date().toLocaleDateString('pt-BR')} - {new Date().toLocaleTimeString('pt-BR')}</p>
-           </div>
-        </div>
+          @page { 
+            size: A4; 
+            margin: 15mm; 
+          }
+          @media print {
+            body { background: white !important; -webkit-print-color-adjust: exact; }
+            .no-print { display: none !important; }
+            
+            .print-header {
+              position: fixed;
+              top: 0;
+              left: 0;
+              right: 0;
+              height: 25mm;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              border-bottom: 2px solid #e2e8f0;
+              background: white;
+              z-index: 1000;
+            }
+            .print-footer {
+              position: fixed;
+              bottom: 0;
+              left: 0;
+              right: 0;
+              height: 15mm;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              border-top: 1px solid #e2e8f0;
+              background: white;
+              font-size: 10px;
+              color: #64748b;
+              z-index: 1000;
+            }
+            
+            .print-table {
+              width: 100%;
+              border-collapse: collapse;
+            }
+            .print-table-header-space { height: 30mm; }
+            .print-table-footer-space { height: 20mm; }
+            
+            .page-number:after {
+              content: "Página " counter(page);
+            }
 
-        <div className="mb-6 bg-slate-50 p-6 rounded-3xl border border-slate-200">
-           <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2">Resumo da Unidade</p>
-           <div className="grid grid-cols-3 gap-8">
-              <div>
-                 <p className="text-[9px] font-bold text-slate-400 uppercase">Total Pacientes</p>
-                 <p className="text-2xl font-black text-blue-900">{filtered.length}</p>
-              </div>
-              <div>
-                 <p className="text-[9px] font-bold text-slate-400 uppercase">Especialidade Filtrada</p>
-                 <p className="text-lg font-black text-slate-800">{specFilter}</p>
-              </div>
-              <div>
-                 <p className="text-[9px] font-bold text-slate-400 uppercase">Emitido por</p>
-                 <p className="text-xs font-black text-slate-700 uppercase">{role}</p>
-              </div>
-           </div>
-        </div>
+            .print-table th { 
+              background-color: #f8fafc !important; 
+              border: 1px solid #cbd5e1; 
+              padding: 10px 8px; 
+              font-size: 10px; 
+              text-transform: uppercase; 
+              font-weight: 900; 
+              text-align: left; 
+              color: #334155; 
+            }
+            .print-table td { 
+              border: 1px solid #e2e8f0; 
+              padding: 8px; 
+              font-size: 10px; 
+              font-weight: 600; 
+              color: #0f172a; 
+            }
+          }
+
+          .print-title-small { color: #1e3a8a; font-size: 24px; font-weight: 900; text-transform: uppercase; }
+        `}</style>
         
         <table className="print-table">
           <thead>
             <tr>
-              <th style={{ width: '40%' }}>NOME DO PACIENTE / ALERTAS</th>
-              <th style={{ width: '15%' }}>PRONTUÁRIO</th>
-              <th style={{ width: '20%' }}>ESPECIALIDADE</th>
-              <th style={{ width: '25%' }}>SITUAÇÃO / SETOR</th>
+              <td>
+                <div className="print-table-header-space"></div>
+              </td>
             </tr>
           </thead>
           <tbody>
-            {filtered.map(p => (
-              <tr key={p.id}>
-                <td>
-                   <div className="font-black uppercase text-[11px]">{p.name}</div>
-                   <div className="flex gap-2 mt-1">
-                      {p.hasAllergy && <span className="text-[8px] font-black text-purple-600 uppercase border border-purple-200 px-1 rounded">ALERGIA</span>}
-                      {p.hasLesion && <span className="text-[8px] font-black text-orange-600 uppercase border border-orange-200 px-1 rounded">LESÃO</span>}
-                   </div>
-                </td>
-                <td className="font-mono text-center text-blue-900 font-black">{p.medicalRecord}</td>
-                <td className="uppercase text-slate-600 font-bold">{p.specialty}</td>
-                <td className="uppercase text-blue-900 font-black">
-                   <div className="text-[10px]">{p.status}</div>
-                   <div className="text-[8px] text-slate-500">{p.corridor}</div>
-                </td>
-              </tr>
-            ))}
+            <tr>
+              <td>
+                <div className="print-content">
+                  <div className="mb-6 bg-slate-50 p-6 rounded-3xl border border-slate-200">
+                    <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2">Resumo da Unidade</p>
+                    <div className="grid grid-cols-3 gap-8">
+                      <div>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase">Total Pacientes</p>
+                        <p className="text-2xl font-black text-blue-900">{filtered.length}</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase">Especialidade Filtrada</p>
+                        <p className="text-lg font-black text-slate-800">{specFilter}</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase">Emitido por</p>
+                        <p className="text-xs font-black text-slate-700 uppercase">{role}</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr>
+                        <th className="border border-slate-300 bg-slate-50 p-2 text-[10px] font-black uppercase text-slate-700 text-left">NOME DO PACIENTE / ALERTAS</th>
+                        <th className="border border-slate-300 bg-slate-50 p-2 text-[10px] font-black uppercase text-slate-700 text-center">PRONTUÁRIO</th>
+                        <th className="border border-slate-300 bg-slate-50 p-2 text-[10px] font-black uppercase text-slate-700 text-left">ESPECIALIDADE</th>
+                        <th className="border border-slate-300 bg-slate-50 p-2 text-[10px] font-black uppercase text-slate-700 text-left">SITUAÇÃO / SETOR</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filtered.map(p => (
+                        <tr key={p.id}>
+                          <td className="border border-slate-200 p-2">
+                            <div className="font-black uppercase text-[10px]">{p.name}</div>
+                            <div className="flex gap-2 mt-1">
+                              {p.hasAllergy && <span className="text-[7px] font-black text-purple-600 uppercase border border-purple-200 px-1 rounded">ALERGIA</span>}
+                              {p.hasLesion && <span className="text-[7px] font-black text-orange-600 uppercase border border-orange-200 px-1 rounded">LESÃO</span>}
+                              {(!p.hasBracelet || !p.hasBedIdentification) && <span className="text-[7px] font-black text-red-600 uppercase border border-red-200 px-1 rounded">SEGURANÇA</span>}
+                            </div>
+                          </td>
+                          <td className="border border-slate-200 p-2 font-mono text-center text-blue-900 font-black text-[10px]">{p.medicalRecord}</td>
+                          <td className="border border-slate-200 p-2 uppercase text-slate-600 font-bold text-[10px]">{p.specialty}</td>
+                          <td className="border border-slate-200 p-2 uppercase text-blue-900 font-black">
+                            <div className="text-[9px]">{p.status}</div>
+                            <div className="text-[7px] text-slate-500">{p.corridor}</div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </td>
+            </tr>
           </tbody>
+          <tfoot>
+            <tr>
+              <td>
+                <div className="print-table-footer-space"></div>
+              </td>
+            </tr>
+          </tfoot>
         </table>
 
+        {/* Fixed Header */}
+        <div className="print-header">
+          <div className="flex items-center gap-3">
+            <Activity className="w-10 h-10 text-[#1e3a8a]" />
+            <h1 className="print-title-small">HospFlow</h1>
+          </div>
+          <div className="text-right">
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Censo Assistencial em Tempo Real</p>
+            <p className="font-bold text-xs text-slate-900">{new Date().toLocaleDateString('pt-BR')} - {new Date().toLocaleTimeString('pt-BR')}</p>
+          </div>
+        </div>
+
+        {/* Fixed Footer */}
         <div className="print-footer">
-           <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-              HospFlow • Gestão Assistencial Segura
-           </div>
-           <div className="flex items-center gap-2">
-              <div className="flex flex-col items-center justify-center w-10 h-10">
-                <div className="relative">
-                  <Stethoscope className="w-7 h-7 text-emerald-600" />
-                  <div className="absolute -top-1 -right-1">
-                    <Sparkles className="w-3 h-3 text-yellow-500 fill-yellow-500" />
-                  </div>
-                </div>
-                <span className="text-[7px] font-black text-slate-900 mt-0.5">MA</span>
-              </div>
-           </div>
+          <div className="font-black uppercase tracking-widest">
+            HospFlow • Gestão Assistencial Segura
+          </div>
+          <div className="flex items-center gap-4">
+            <span className="font-bold">{new Date().toLocaleDateString('pt-BR')}</span>
+            <span className="page-number font-black"></span>
+          </div>
         </div>
       </div>
     </div>

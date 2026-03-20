@@ -228,7 +228,6 @@ const TransferManager: React.FC<TransferManagerProps> = ({ role, patients, onUpd
         status: p.status.includes('Transferência') ? p.status : 'Transferido'
       });
       alert(`Transferência de ${p.name} concluída com sucesso!`);
-      window.dispatchEvent(new CustomEvent('change-view', { detail: 'FINALIZED_PATIENTS' }));
     }
   };
 
@@ -399,7 +398,7 @@ const TransferManager: React.FC<TransferManagerProps> = ({ role, patients, onUpd
           <style>{`
             @page { 
               size: A4; 
-              margin: 20mm; 
+              margin: 10mm; 
             }
             @media print {
               body { background: white !important; -webkit-print-color-adjust: exact; }
@@ -410,47 +409,55 @@ const TransferManager: React.FC<TransferManagerProps> = ({ role, patients, onUpd
                 top: 0;
                 left: 0;
                 right: 0;
-                height: 25mm;
+                height: 20mm;
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
                 border-bottom: 2px solid #e2e8f0;
                 background: white;
+                z-index: 1000;
               }
               .print-footer {
                 position: fixed;
                 bottom: 0;
                 left: 0;
                 right: 0;
-                height: 15mm;
+                height: 12mm;
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
                 border-top: 1px solid #e2e8f0;
                 background: white;
-                font-size: 10px;
+                font-size: 9px;
                 color: #64748b;
+                z-index: 1000;
               }
               
               .print-table {
                 width: 100%;
                 border-collapse: collapse;
               }
-              .print-table-header-space { height: 30mm; }
-              .print-table-footer-space { height: 20mm; }
+              .print-table-header-space { height: 25mm; }
+              .print-table-footer-space { height: 15mm; }
               
               .page-number:after {
                 content: "Página " counter(page);
               }
               .p-card { border: 1px solid #e2e8f0 !important; background: #f8fafc !important; }
+
+              /* Force single page for Monthly Report */
+              .print-content {
+                max-height: 250mm;
+                overflow: hidden;
+              }
             }
 
-            .print-title-small { color: #1e3a8a; font-size: 24px; font-weight: 900; text-transform: uppercase; }
-            .markdown-content h2 { font-size: 14px; font-weight: 900; text-transform: uppercase; margin-top: 15px; margin-bottom: 8px; color: #1e3a8a; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
-            .markdown-content h3 { font-size: 12px; font-weight: 800; text-transform: uppercase; margin-top: 12px; margin-bottom: 6px; color: #475569; }
-            .markdown-content p { margin-bottom: 8px; font-size: 12px; line-height: 1.5; }
-            .markdown-content ul { margin-bottom: 10px; padding-left: 15px; list-style-type: disc; }
-            .markdown-content li { margin-bottom: 4px; font-size: 12px; }
+            .print-title-small { color: #1e3a8a; font-size: 20px; font-weight: 900; text-transform: uppercase; }
+            .markdown-content h2 { font-size: 11px; font-weight: 900; text-transform: uppercase; margin-top: 10px; margin-bottom: 5px; color: #1e3a8a; border-bottom: 1px solid #e2e8f0; padding-bottom: 2px; }
+            .markdown-content h3 { font-size: 10px; font-weight: 800; text-transform: uppercase; margin-top: 8px; margin-bottom: 4px; color: #475569; }
+            .markdown-content p { margin-bottom: 5px; font-size: 10px; line-height: 1.4; }
+            .markdown-content ul { margin-bottom: 8px; padding-left: 12px; list-style-type: disc; }
+            .markdown-content li { margin-bottom: 2px; font-size: 10px; }
             .markdown-content strong { color: #0f172a; font-weight: 800; }
           `}</style>
 
@@ -466,58 +473,58 @@ const TransferManager: React.FC<TransferManagerProps> = ({ role, patients, onUpd
               <tr>
                 <td>
                   <div className="print-content">
-                    <div className="grid grid-cols-4 gap-4 mb-8">
+                    <div className="grid grid-cols-4 gap-3 mb-6">
                        {[
                          { label: 'Total Fluxo', val: monthlyStats.total },
                          { label: 'Altas', val: monthlyStats.altas },
                          { label: 'Média Pendência', val: monthlyStats.averages.pendency + 'h' },
                          { label: 'Média Maca', val: monthlyStats.averages.stretcher + 'h' }
                        ].map(card => (
-                         <div key={card.label} className="p-card p-4 rounded-2xl text-center">
-                            <p className="text-[7px] font-black text-slate-500 uppercase mb-1">{card.label}</p>
-                            <h3 className="text-xl font-black text-blue-900">{card.val}</h3>
+                         <div key={card.label} className="p-card p-3 rounded-xl text-center">
+                            <p className="text-[6px] font-black text-slate-500 uppercase mb-0.5">{card.label}</p>
+                            <h3 className="text-lg font-black text-blue-900">{card.val}</h3>
                          </div>
                        ))}
                     </div>
 
-                    <div className="grid grid-cols-3 gap-4 mb-8">
+                    <div className="grid grid-cols-3 gap-3 mb-6">
                        {[
                          { label: 'Média Transf. Interna', val: monthlyStats.averages.transfer + 'h' },
                          { label: 'Média Transf. UPA', val: monthlyStats.averages.upa + 'h' },
                          { label: 'Média Transf. Externa', val: monthlyStats.averages.external + 'h' }
                        ].map(card => (
-                         <div key={card.label} className="p-card p-3 rounded-2xl text-center border-blue-100">
-                            <p className="text-[6px] font-black text-slate-500 uppercase mb-1">{card.label}</p>
-                            <h3 className="text-base font-black text-indigo-900">{card.val}</h3>
+                         <div key={card.label} className="p-card p-2 rounded-xl text-center border-blue-100">
+                            <p className="text-[5px] font-black text-slate-500 uppercase mb-0.5">{card.label}</p>
+                            <h3 className="text-sm font-black text-indigo-900">{card.val}</h3>
                          </div>
                        ))}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-8 mb-8">
-                       <div className="border border-slate-200 rounded-3xl p-6 bg-slate-50/10">
-                          <h4 className="text-[9px] font-black text-slate-800 uppercase tracking-widest mb-4">Demanda por Especialidade</h4>
-                          <div className="space-y-1.5">
-                             {monthlyStats.specialtyData.slice(0, 10).map(s => (
-                               <div key={s.name} className="flex justify-between items-center text-[9px] font-bold border-b border-slate-100 pb-1.5">
+                    <div className="grid grid-cols-2 gap-6 mb-6">
+                       <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50/10">
+                          <h4 className="text-[8px] font-black text-slate-800 uppercase tracking-widest mb-3">Demanda por Especialidade</h4>
+                          <div className="space-y-1">
+                             {monthlyStats.specialtyData.slice(0, 8).map(s => (
+                               <div key={s.name} className="flex justify-between items-center text-[8px] font-bold border-b border-slate-100 pb-1">
                                   <span className="text-slate-600 uppercase">{s.name}</span>
                                   <div className="text-right">
                                     <span className="text-blue-900 font-black">{s.value} pac.</span>
-                                    <span className="text-slate-400 ml-2">({s.avgPendency}h pend.)</span>
+                                    <span className="text-slate-400 ml-1.5">({s.avgPendency}h pend.)</span>
                                   </div>
                                </div>
                              ))}
                           </div>
                        </div>
 
-                       <div className="border border-slate-200 rounded-3xl p-6 bg-slate-50/10">
-                          <h4 className="text-[9px] font-black text-slate-800 uppercase tracking-widest mb-4">Análise de Pendências</h4>
-                          <div className="space-y-1.5">
-                             {monthlyStats.pendencyData.slice(0, 10).map(p => (
-                               <div key={p.name} className="flex justify-between items-center text-[9px] font-bold border-b border-slate-100 pb-1.5">
-                                  <span className="text-slate-600 uppercase truncate max-w-[120px]">{p.name}</span>
+                       <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50/10">
+                          <h4 className="text-[8px] font-black text-slate-800 uppercase tracking-widest mb-3">Análise de Pendências</h4>
+                          <div className="space-y-1">
+                             {monthlyStats.pendencyData.slice(0, 8).map(p => (
+                               <div key={p.name} className="flex justify-between items-center text-[8px] font-bold border-b border-slate-100 pb-1">
+                                  <span className="text-slate-600 uppercase truncate max-w-[100px]">{p.name}</span>
                                   <div className="text-right">
                                     <span className="text-amber-700 font-black">{p.count} casos</span>
-                                    <span className="text-slate-400 ml-2">({p.avg}h res.)</span>
+                                    <span className="text-slate-400 ml-1.5">({p.avg}h res.)</span>
                                   </div>
                                </div>
                              ))}
@@ -546,19 +553,19 @@ const TransferManager: React.FC<TransferManagerProps> = ({ role, patients, onUpd
           </table>
 
           {/* Fixed Header */}
-          <div className="print-header no-print-screen">
+          <div className="print-header">
              <div className="flex items-center gap-3">
-                <Activity className="w-10 h-10 text-[#1e3a8a]" />
+                <Activity className="w-8 h-8 text-[#1e3a8a]" />
                 <h1 className="print-title-small">HospFlow</h1>
              </div>
              <div className="text-right">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Dashboard Mensal Consolidado</p>
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Dashboard Mensal Consolidado</p>
                 <p className="font-bold text-xs text-slate-900">{selectedReportMonth}</p>
              </div>
           </div>
 
           {/* Fixed Footer */}
-          <div className="print-footer no-print-screen">
+          <div className="print-footer">
              <div className="font-black uppercase tracking-widest">
                 HospFlow • Gestão de Fluxo Hospitalar
              </div>
