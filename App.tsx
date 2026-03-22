@@ -377,9 +377,9 @@ const App: React.FC = () => {
   }, [user, loadData]);
 
   const updatePatient = useCallback(async (id: string, updates: Partial<Patient>) => {
-    let updatedP: Patient | undefined;
     const now = new Date().toISOString();
-    
+    let updatedP: Patient | undefined;
+
     setPatients(prev => {
       const newList = prev.map(p => {
         if (p.id === id) {
@@ -418,40 +418,78 @@ const App: React.FC = () => {
         }
         return p;
       });
+
+      // Se não encontramos o paciente para atualizar, retornamos a lista anterior
+      if (!updatedP) return prev;
+      
       return [...newList].sort((a, b) => a.name.localeCompare(b.name));
     });
 
-    if (updatedP) {
+    // Como setPatients é assíncrono, precisamos calcular updatedP novamente para a API
+    // ou garantir que ele foi capturado. No entanto, a forma mais segura é recalcular
+    // para evitar race conditions com o estado.
+    
+    // Vamos buscar o paciente atual da lista para garantir que temos a versão mais recente
+    // Mas como estamos em um useCallback, 'patients' pode estar desatualizado.
+    // A melhor abordagem é calcular o novo objeto baseado no paciente que encontramos no prev.
+    
+    // No entanto, o problema original era que updatedP era undefined fora do setPatients.
+    // Se usarmos uma variável mutável dentro do setPatients, ela SÓ será preenchida
+    // quando o callback for executado.
+    
+    // Correção: Encontrar o paciente na lista atual (mesmo que ligeiramente desatualizada)
+    // ou passar o paciente inteiro para a função updatePatient.
+    
+    const p = patients.find(p => p.id === id);
+    if (p) {
+      const finalUpdates = { ...updates };
+      if (p.pendencies !== 'Nenhuma' && updates.pendencies === 'Nenhuma') finalUpdates.pendenciesResolvedAt = now;
+      if (!p.isTransferRequested && updates.isTransferRequested === true) finalUpdates.transferRequestedAt = now;
+      if (p.status !== 'Transferência UPA' && updates.status === 'Transferência UPA') finalUpdates.upaTransferRequestedAt = now;
+      if (p.status !== 'Transferência Externa' && updates.status === 'Transferência Externa') finalUpdates.externalTransferRequestedAt = now;
+      if (!p.isTransferred && updates.isTransferred === true) finalUpdates.transferredAt = now;
+
+      const finalP = { 
+        ...p, 
+        ...finalUpdates, 
+        lastModifiedBy: `${user?.username} - ${user?.name}`,
+        lastModifiedAt: now
+      };
+
       try {
-        const res = await api.savePatient(updatedP);
+        const res = await api.savePatient(finalP);
         if (!res.ok) throw new Error("Erro ao salvar no servidor");
       } catch (e) {
         console.error("Erro ao atualizar paciente:", e);
         loadData(); // Re-sincronizar
       }
     }
-  }, [user, loadData]);
+  }, [user, loadData, patients]);
 
   const updatePatients = useCallback(async (ids: string[], updates: Partial<Patient>) => {
     const now = new Date().toISOString();
-    const toUpdate: Patient[] = [];
     
     setPatients(prev => {
       const newList = prev.map(p => {
         if (ids.includes(p.id)) {
-          const newP = { 
+          return { 
             ...p, 
             ...updates, 
             lastModifiedBy: `${user?.username} - ${user?.name}`,
             lastModifiedAt: now
           };
-          toUpdate.push(newP);
-          return newP;
         }
         return p;
       });
       return [...newList].sort((a, b) => a.name.localeCompare(b.name));
     });
+
+    const toUpdate = patients.filter(p => ids.includes(p.id)).map(p => ({
+      ...p,
+      ...updates,
+      lastModifiedBy: `${user?.username} - ${user?.name}`,
+      lastModifiedAt: now
+    }));
 
     if (toUpdate.length > 0) {
       try {
@@ -464,7 +502,7 @@ const App: React.FC = () => {
         loadData(); // Re-sincronizar
       }
     }
-  }, [user, loadData]);
+  }, [user, loadData, patients]);
 
   const deletePatients = useCallback(async (ids: string[]) => {
     setPatients(prev => prev.filter(p => !ids.includes(p.id)));
