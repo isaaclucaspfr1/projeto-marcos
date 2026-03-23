@@ -132,7 +132,7 @@ const PendencyView: React.FC<PendencyViewProps> = ({ patients, onUpdatePatient, 
                    placeholder="Ex.: UPA HOB - Cersan" 
                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500 uppercase"
                    value={transferDestination}
-                   onChange={e => setTransferDestination(e.target.value.toUpperCase())}
+                   onChange={e => setTransferDestination(e.target.value)}
                  />
                  <div className="flex gap-2">
                    <button onClick={() => { setSolvingTransferId(null); setTransferDestination(''); }} className="flex-1 py-2 bg-slate-100 text-slate-500 rounded-lg text-[10px] font-bold uppercase">Cancelar</button>
@@ -142,7 +142,8 @@ const PendencyView: React.FC<PendencyViewProps> = ({ patients, onUpdatePatient, 
                        onUpdatePatient(p.id, { 
                          isTransferred: true, 
                          transferredAt: new Date().toISOString(),
-                         notes: (p.notes ? p.notes + '\n' : '') + `TRANSFERIDO PARA: ${transferDestination}`
+                         transferDestinationBed: transferDestination.toUpperCase(),
+                         status: 'Transferência Externa'
                        });
                        setSolvingTransferId(null);
                        setTransferDestination('');
@@ -229,7 +230,15 @@ const PendencyView: React.FC<PendencyViewProps> = ({ patients, onUpdatePatient, 
                       onUpdatePatient(p.id, { hasBracelet: true, hasBedIdentification: true });
                     } else if (p.status === 'Alta') {
                       handleFinalizeAlta(p);
-                    } else if (p.pendencies === 'Transferência UPA' || p.pendencies === 'Transferência Externo') {
+                    } else if (p.pendencies === 'Transferência UPA') {
+                      onUpdatePatient(p.id, { 
+                        isTransferred: true, 
+                        transferredAt: new Date().toISOString(),
+                        transferDestinationBed: 'RETORNOU PARA UPA',
+                        status: 'Transferência UPA'
+                      });
+                      alert(`Paciente ${p.name} encaminhado para UPA com sucesso!`);
+                    } else if (p.pendencies === 'Transferência Externo') {
                       setSolvingTransferId(p.id);
                     } else if (p.pendencies === 'Reavaliação médica' || p.status === 'Reavaliação') {
                       setSolvingReevaluationId(p.id);

@@ -18,6 +18,7 @@ import {
   ArrowLeft,
   Lock
 } from 'lucide-react';
+import UserLogo from './UserLogo';
 
 interface CollaboratorManagerProps {
   user: AuthUser;
@@ -183,9 +184,7 @@ const CollaboratorManager: React.FC<CollaboratorManagerProps> = ({ user, collabo
                     className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm hover:border-indigo-400 transition-all flex items-center justify-between group"
                   >
                     <div className="flex items-center gap-4">
-                       <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${c.role === 'coordenacao' ? 'bg-slate-800 text-white' : (c.role === 'enfermeiro' ? 'bg-blue-600 text-white' : 'bg-emerald-600 text-white')}`}>
-                          {c.role === 'coordenacao' ? <Briefcase className="w-6 h-6" /> : (c.role === 'enfermeiro' ? <ShieldCheck className="w-6 h-6" /> : <Stethoscope className="w-6 h-6" />)}
-                       </div>
+                        <UserLogo role={c.role} username={c.login} size="w-12 h-12" iconSize="w-6 h-6" />
                        <div>
                           <p className="font-black text-slate-800 uppercase text-sm leading-tight group-hover:text-indigo-600 transition-colors">{c.name}</p>
                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
@@ -211,9 +210,7 @@ const CollaboratorManager: React.FC<CollaboratorManagerProps> = ({ user, collabo
            <div className="bg-white rounded-[2.5rem] shadow-2xl border border-slate-200 overflow-hidden">
               <div className="bg-slate-900 p-10 text-white flex justify-between items-center">
                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center border border-white/20">
-                       <UserSearch className="w-8 h-8" />
-                    </div>
+                     <UserLogo role={selectedUser.role} username={selectedUser.login} size="w-14 h-14" iconSize="w-8 h-8" className="bg-white/10 border-white/20" />
                     <div>
                        <h3 className="text-xl font-black uppercase tracking-tight">{selectedUser.name}</h3>
                        <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">ID: {selectedUser.login}</p>

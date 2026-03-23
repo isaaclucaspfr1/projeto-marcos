@@ -1,7 +1,8 @@
 
 import React from 'react';
 import { User, AppView } from '../types';
-import { ChevronLeft, LogOut, Activity, ShieldCheck, Stethoscope, Briefcase } from 'lucide-react';
+import { ChevronLeft, LogOut, Activity } from 'lucide-react';
+import UserLogo from './UserLogo';
 
 interface LayoutProps {
   user: User;
@@ -50,11 +51,7 @@ const Layout: React.FC<LayoutProps> = ({ user, currentView, selectedUnit, onBack
               </span>
               <span className="text-[9px] font-black text-blue-300 uppercase tracking-[0.2em]">HospFlow Assistencial</span>
             </div>
-            <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center text-blue-200 border border-white/10">
-               {user.role === 'enfermeiro' ? <ShieldCheck className="w-5 h-5" /> : 
-                user.role === 'coordenacao' ? <Briefcase className="w-5 h-5" /> : 
-                <Stethoscope className="w-5 h-5" />}
-            </div>
+            <UserLogo role={user.role as any} username={user.username} />
             <button onClick={onLogout} className="p-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all active:scale-90">
               <LogOut className="w-5 h-5" />
             </button>

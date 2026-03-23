@@ -23,10 +23,12 @@ async function initDb() {
     await client.query(`
       CREATE TABLE IF NOT EXISTS patients (
         id TEXT PRIMARY KEY,
+        unit TEXT,
         data TEXT NOT NULL
       );
       CREATE TABLE IF NOT EXISTS lean_patients (
         id TEXT PRIMARY KEY,
+        unit TEXT,
         data TEXT NOT NULL
       );
       CREATE TABLE IF NOT EXISTS collaborators (
@@ -34,6 +36,17 @@ async function initDb() {
         login TEXT UNIQUE NOT NULL,
         data TEXT NOT NULL
       );
+      
+      -- Migration: Add unit column if not exists and populate it
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='patients' AND column_name='unit') THEN
+          ALTER TABLE patients ADD COLUMN unit TEXT;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='lean_patients' AND column_name='unit') THEN
+          ALTER TABLE lean_patients ADD COLUMN unit TEXT;
+        END IF;
+      END $$;
     `);
 
     // Migration logic from SQLite to PostgreSQL
@@ -72,6 +85,9 @@ async function initDb() {
     await client.query("DELETE FROM collaborators WHERE login = '5669' AND id != '1'");
     await client.query("INSERT INTO collaborators (id, login, data) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET login = EXCLUDED.login, data = EXCLUDED.data", [dev.id, dev.login, JSON.stringify(dev)]);
 
+    // Remove test users
+    await client.query("DELETE FROM collaborators WHERE id IN ('1010', '456') OR login IN ('1010', '456')");
+
   } finally {
     client.release();
   }
@@ -102,7 +118,16 @@ async function startServer() {
   // Patients API
   app.get("/api/patients", async (req, res) => {
     try {
-      const result = await pool.query("SELECT data FROM patients");
+      const unit = req.query.unit as string;
+      let query = "SELECT data FROM patients";
+      let params: any[] = [];
+      
+      if (unit) {
+        query += " WHERE unit = $1";
+        params.push(unit);
+      }
+      
+      const result = await pool.query(query, params);
       res.json(result.rows.map(r => JSON.parse(r.data)));
     } catch (err) {
       console.error("Error fetching patients:", err);
@@ -116,8 +141,8 @@ async function startServer() {
       if (!patient.id) return res.status(400).json({ error: "Missing patient ID" });
       
       await pool.query(
-        "INSERT INTO patients (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data", 
-        [patient.id, JSON.stringify(patient)]
+        "INSERT INTO patients (id, unit, data) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET unit = EXCLUDED.unit, data = EXCLUDED.data", 
+        [patient.id, patient.unit, JSON.stringify(patient)]
       );
       
       io.emit("patient_updated", patient);
@@ -137,8 +162,8 @@ async function startServer() {
       await client.query('BEGIN');
       for (const patient of patients) {
         await client.query(
-          "INSERT INTO patients (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data", 
-          [patient.id, JSON.stringify(patient)]
+          "INSERT INTO patients (id, unit, data) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET unit = EXCLUDED.unit, data = EXCLUDED.data", 
+          [patient.id, patient.unit, JSON.stringify(patient)]
         );
       }
       await client.query('COMMIT');
@@ -186,7 +211,16 @@ async function startServer() {
   // Lean Patients API
   app.get("/api/lean-patients", async (req, res) => {
     try {
-      const result = await pool.query("SELECT data FROM lean_patients");
+      const unit = req.query.unit as string;
+      let query = "SELECT data FROM lean_patients";
+      let params: any[] = [];
+      
+      if (unit) {
+        query += " WHERE unit = $1";
+        params.push(unit);
+      }
+      
+      const result = await pool.query(query, params);
       res.json(result.rows.map(r => JSON.parse(r.data)));
     } catch (err) {
       res.status(500).json({ error: (err as Error).message });
@@ -199,8 +233,8 @@ async function startServer() {
       if (!patient.id) return res.status(400).json({ error: "Missing patient ID" });
       
       await pool.query(
-        "INSERT INTO lean_patients (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data", 
-        [patient.id, JSON.stringify(patient)]
+        "INSERT INTO lean_patients (id, unit, data) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET unit = EXCLUDED.unit, data = EXCLUDED.data", 
+        [patient.id, patient.unit, JSON.stringify(patient)]
       );
       
       io.emit("lean_patient_updated", patient);
@@ -220,8 +254,8 @@ async function startServer() {
       await client.query('BEGIN');
       for (const patient of patients) {
         await client.query(
-          "INSERT INTO lean_patients (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data", 
-          [patient.id, JSON.stringify(patient)]
+          "INSERT INTO lean_patients (id, unit, data) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET unit = EXCLUDED.unit, data = EXCLUDED.data", 
+          [patient.id, patient.unit, JSON.stringify(patient)]
         );
       }
       await client.query('COMMIT');

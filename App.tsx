@@ -54,12 +54,12 @@ const MALogo = React.memo(({ size = "w-14 h-14" }: { size?: string }) => (
 ));
 
 const api = {
-  getPatients: () => fetch('/api/patients').then(r => r.json()),
+  getPatients: (unit?: string) => fetch(`/api/patients${unit ? `?unit=${encodeURIComponent(unit)}` : ''}`).then(r => r.json()),
   savePatient: (p: Patient) => fetch('/api/patients', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p) }),
   bulkSavePatients: (patients: Patient[]) => fetch('/api/patients/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ patients }) }),
   deletePatient: (id: string) => fetch(`/api/patients/${id}`, { method: 'DELETE' }),
   bulkDeletePatients: (ids: string[]) => fetch('/api/patients/bulk-delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) }),
-  getLeanPatients: () => fetch('/api/lean-patients').then(r => r.json()),
+  getLeanPatients: (unit?: string) => fetch(`/api/lean-patients${unit ? `?unit=${encodeURIComponent(unit)}` : ''}`).then(r => r.json()),
   saveLeanPatient: (p: LeanPatient) => fetch('/api/lean-patients', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p) }),
   bulkSaveLeanPatients: (patients: LeanPatient[]) => fetch('/api/lean-patients/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ patients }) }),
   deleteLeanPatient: (id: string) => fetch(`/api/lean-patients/${id}`, { method: 'DELETE' }),
@@ -103,8 +103,8 @@ const App: React.FC = () => {
   const loadData = useCallback(async () => {
     try {
       const [p, lp, c] = await Promise.all([
-        api.getPatients(),
-        api.getLeanPatients(),
+        api.getPatients(selectedUnit || undefined),
+        api.getLeanPatients(selectedUnit || undefined),
         api.getCollaborators()
       ]);
       setPatients(p);
@@ -113,7 +113,7 @@ const App: React.FC = () => {
     } catch (e) {
       console.error("Erro ao carregar dados do servidor:", e);
     }
-  }, []);
+  }, [selectedUnit]);
 
   // Configuração do Socket.io
   useEffect(() => {
@@ -346,15 +346,20 @@ const App: React.FC = () => {
     const isAutoTransfer = isUpa || isExternal;
     const now = new Date().toISOString();
     
+    const isPendency = p.pendencies !== 'Nenhuma' || !p.hasBracelet || !p.hasBedIdentification || p.status === 'Alta' || p.status === 'Reavaliação';
+
     const newP: Patient = {
       ...p as Patient,
       id: crypto.randomUUID(),
+      unit: selectedUnit!,
       createdAt: now,
       createdBy: `${user?.username} - ${user?.name}`,
       lastModifiedBy: `${user?.username} - ${user?.name}`,
       lastModifiedAt: now,
       isTransferRequested: isAutoTransfer,
       transferRequestedAt: isAutoTransfer ? now : undefined,
+      isTransferNew: isAutoTransfer,
+      isPendencyNew: isPendency,
       upaTransferRequestedAt: isUpa ? now : undefined,
       externalTransferRequestedAt: isExternal ? now : undefined,
       pendenciesResolvedAt: p.pendencies === 'Nenhuma' ? now : undefined,
@@ -386,6 +391,17 @@ const App: React.FC = () => {
           const finalUpdates = { ...updates };
           
           // Monitoramento de Pendências
+          const oldIsPendency = p.pendencies !== 'Nenhuma' || !p.hasBracelet || !p.hasBedIdentification || p.status === 'Alta' || p.status === 'Reavaliação';
+          const newIsPendency = (updates.pendencies || p.pendencies) !== 'Nenhuma' || 
+                                (updates.hasBracelet !== undefined ? !updates.hasBracelet : !p.hasBracelet) || 
+                                (updates.hasBedIdentification !== undefined ? !updates.hasBedIdentification : !p.hasBedIdentification) || 
+                                (updates.status || p.status) === 'Alta' || 
+                                (updates.status || p.status) === 'Reavaliação';
+
+          if (!oldIsPendency && newIsPendency) {
+            finalUpdates.isPendencyNew = true;
+          }
+
           if (p.pendencies !== 'Nenhuma' && updates.pendencies === 'Nenhuma') {
             finalUpdates.pendenciesResolvedAt = now;
           }
@@ -393,6 +409,7 @@ const App: React.FC = () => {
           // Monitoramento de Solicitação de Transferência
           if (!p.isTransferRequested && updates.isTransferRequested === true) {
             finalUpdates.transferRequestedAt = now;
+            finalUpdates.isTransferNew = true;
           }
           
           // Monitoramento de UPA/Externa
@@ -443,8 +460,20 @@ const App: React.FC = () => {
     const p = patients.find(p => p.id === id);
     if (p) {
       const finalUpdates = { ...updates };
+      
+      const oldIsPendency = p.pendencies !== 'Nenhuma' || !p.hasBracelet || !p.hasBedIdentification || p.status === 'Alta' || p.status === 'Reavaliação';
+      const newIsPendency = (updates.pendencies || p.pendencies) !== 'Nenhuma' || 
+                            (updates.hasBracelet !== undefined ? !updates.hasBracelet : !p.hasBracelet) || 
+                            (updates.hasBedIdentification !== undefined ? !updates.hasBedIdentification : !p.hasBedIdentification) || 
+                            (updates.status || p.status) === 'Alta' || 
+                            (updates.status || p.status) === 'Reavaliação';
+
+      if (!oldIsPendency && newIsPendency) finalUpdates.isPendencyNew = true;
       if (p.pendencies !== 'Nenhuma' && updates.pendencies === 'Nenhuma') finalUpdates.pendenciesResolvedAt = now;
-      if (!p.isTransferRequested && updates.isTransferRequested === true) finalUpdates.transferRequestedAt = now;
+      if (!p.isTransferRequested && updates.isTransferRequested === true) {
+        finalUpdates.transferRequestedAt = now;
+        finalUpdates.isTransferNew = true;
+      }
       if (p.status !== 'Transferência UPA' && updates.status === 'Transferência UPA') finalUpdates.upaTransferRequestedAt = now;
       if (p.status !== 'Transferência Externa' && updates.status === 'Transferência Externa') finalUpdates.externalTransferRequestedAt = now;
       if (!p.isTransferred && updates.isTransferred === true) finalUpdates.transferredAt = now;
@@ -509,13 +538,42 @@ const App: React.FC = () => {
     await api.bulkDeletePatients(ids);
   }, []);
 
+  // Limpar notificações ao visualizar as listas
+  useEffect(() => {
+    if (!selectedUnit) return;
+
+    if (currentView === 'PATIENT_LIST') {
+      const toClear = patients.filter(p => p.unit === selectedUnit && p.isNew);
+      if (toClear.length > 0) {
+        updatePatients(toClear.map(p => p.id), { isNew: false });
+      }
+    }
+
+    if (currentView === 'TRANSFERS') {
+      const toClear = patients.filter(p => p.unit === selectedUnit && p.isTransferNew);
+      if (toClear.length > 0) {
+        updatePatients(toClear.map(p => p.id), { isTransferNew: false });
+      }
+    }
+
+    if (currentView === 'PENDENCIES') {
+      const toClear = patients.filter(p => p.unit === selectedUnit && p.isPendencyNew);
+      if (toClear.length > 0) {
+        updatePatients(toClear.map(p => p.id), { isPendencyNew: false });
+      }
+    }
+  }, [currentView, selectedUnit, patients, updatePatients]);
+
   const renderContent = () => {
+    const filteredPatients = patients.filter(p => p.unit === selectedUnit);
+    const filteredLeanPatients = leanPatients.filter(p => p.unit === selectedUnit);
+
     switch (currentView) {
       case 'MAIN_MENU':
         const btnBase = "flex flex-col items-center justify-center p-4 bg-white rounded-2xl border-2 border-slate-900 shadow-sm hover:shadow-md transition-all active:scale-95 group h-32 relative text-center";
-        const pendencyCount = patients.filter(p => !p.isTransferred && (p.pendencies !== 'Nenhuma' || !p.hasBracelet || !p.hasBedIdentification || p.status === 'Alta' || p.status === 'Reavaliação')).length;
-        const transferRequestCount = patients.filter(p => p.isTransferRequested && !p.isTransferred).length;
-        const newPatientsCount = patients.filter(p => p.isNew && !p.isTransferred).length;
+        const pendencyCount = filteredPatients.filter(p => p.isPendencyNew && !p.isTransferred).length;
+        const transferRequestCount = filteredPatients.filter(p => p.isTransferNew && !p.isTransferred).length;
+        const newPatientsCount = filteredPatients.filter(p => p.isNew && !p.isTransferred).length;
 
         const badge = (count: number, color: string) => count > 0 ? (
           <span className={`absolute top-2 right-2 w-5 h-5 ${count > 5 ? 'bg-red-600' : color} text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse`}>
@@ -729,6 +787,7 @@ const App: React.FC = () => {
         const now = new Date().toISOString();
         const enrichedP = {
           ...p,
+          unit: selectedUnit!,
           lastModifiedBy: `${user?.username} - ${user?.name}`,
           lastModifiedAt: now
         };
@@ -736,26 +795,27 @@ const App: React.FC = () => {
         await api.saveLeanPatient(enrichedP);
         setCurrentView('LEAN_LIST'); 
       }} onCancel={() => setCurrentView('LEAN_MENU')} />;
-      case 'LEAN_LIST': return <LeanPatientList patients={leanPatients} onUpdate={async (newList) => {
+      case 'LEAN_LIST': return <LeanPatientList patients={filteredLeanPatients} onUpdate={async (newList) => {
         try {
           // Identificar o que mudou para sincronizar com o banco
-          if (newList.length < leanPatients.length) {
+          if (newList.length < filteredLeanPatients.length) {
             // Deleção
-            const deleted = leanPatients.find(p => !newList.some(np => np.id === p.id));
+            const deleted = filteredLeanPatients.find(p => !newList.some(np => np.id === p.id));
             if (deleted) {
               await api.deleteLeanPatient(deleted.id);
-              setLeanPatients(newList);
+              setLeanPatients(prev => prev.filter(p => p.id !== deleted.id));
             }
           } else {
             // Adição ou Edição
             const changed = newList.filter(np => {
-              const old = leanPatients.find(p => p.id === np.id);
+              const old = filteredLeanPatients.find(p => p.id === np.id);
               return !old || JSON.stringify(old) !== JSON.stringify(np);
             });
             
             if (changed.length > 0) {
               const enrichedChanged = changed.map(c => ({
                 ...c,
+                unit: selectedUnit!,
                 lastModifiedBy: `${user?.username} - ${user?.name}`,
                 lastModifiedAt: new Date().toISOString()
               }));
@@ -766,12 +826,10 @@ const App: React.FC = () => {
                 await api.bulkSaveLeanPatients(enrichedChanged);
               }
               
-              setLeanPatients(newList.map(p => {
+              setLeanPatients(prev => prev.map(p => {
                 const updated = enrichedChanged.find(ec => ec.id === p.id);
                 return updated || p;
               }));
-            } else {
-              setLeanPatients(newList);
             }
           }
         } catch (e) {
@@ -779,7 +837,7 @@ const App: React.FC = () => {
           loadData(); // Re-sincronizar
         }
       }} onCancel={() => setCurrentView('LEAN_MENU')} />;
-      case 'LEAN_NURSE_SUMMARY': return <LeanDashboard patients={leanPatients} unit={selectedUnit || ''} onCancel={() => setCurrentView('LEAN_MENU')} />;
+      case 'LEAN_NURSE_SUMMARY': return <LeanDashboard patients={filteredLeanPatients} unit={selectedUnit || ''} onCancel={() => setCurrentView('LEAN_MENU')} />;
       case 'CHANGE_PASSWORD': return (
         <div className="min-h-screen bg-slate-100 flex items-center justify-center p-6 flex-col">
           <div className="max-w-md w-full bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-200">
@@ -816,14 +874,14 @@ const App: React.FC = () => {
           </div>
         );
 
-      case 'PATIENT_LIST': return <PatientList patients={patients} role={user?.role || 'tecnico'} onDeletePatients={deletePatients} onUpdatePatients={updatePatients} onEdit={p => { setScannedData(p); setCurrentView('NEW_PATIENT'); }} />;
-      case 'DASHBOARD': return <Dashboard patients={patients} role={user?.role || 'tecnico'} />;
-      case 'CLINICAL_DECISION': return <ClinicalDecision patients={patients} onUpdatePatient={updatePatient} />;
-      case 'INITIATE_TRANSFER': return <InitiateTransfer patients={patients} onUpdatePatient={updatePatient} onCancel={() => setCurrentView('MAIN_MENU')} />;
-      case 'TRANSFERS': return <TransferManager role={user?.role || 'tecnico'} patients={patients} onUpdatePatient={updatePatient} />;
-      case 'FINALIZED_PATIENTS': return <TransferManager role={user?.role || 'tecnico'} patients={patients} onUpdatePatient={updatePatient} historyView onDeletePatients={deletePatients} />;
-      case 'PENDENCIES': return <PendencyView patients={patients} onUpdatePatient={updatePatient} role={user?.role || 'tecnico'} />;
-      case 'CLEAR_DATA': return <ClearDataView patients={patients} onDeletePatients={deletePatients} />;
+      case 'PATIENT_LIST': return <PatientList patients={filteredPatients} role={user?.role || 'tecnico'} onDeletePatients={deletePatients} onUpdatePatients={updatePatients} onEdit={p => { setScannedData(p); setCurrentView('NEW_PATIENT'); }} />;
+      case 'DASHBOARD': return <Dashboard patients={filteredPatients} role={user?.role || 'tecnico'} />;
+      case 'CLINICAL_DECISION': return <ClinicalDecision patients={filteredPatients} onUpdatePatient={updatePatient} />;
+      case 'INITIATE_TRANSFER': return <InitiateTransfer patients={filteredPatients} onUpdatePatient={updatePatient} onCancel={() => setCurrentView('MAIN_MENU')} />;
+      case 'TRANSFERS': return <TransferManager role={user?.role || 'tecnico'} patients={filteredPatients} onUpdatePatient={updatePatient} />;
+      case 'FINALIZED_PATIENTS': return <TransferManager role={user?.role || 'tecnico'} patients={filteredPatients} onUpdatePatient={updatePatient} historyView onDeletePatients={deletePatients} />;
+      case 'PENDENCIES': return <PendencyView patients={filteredPatients} onUpdatePatient={updatePatient} role={user?.role || 'tecnico'} />;
+      case 'CLEAR_DATA': return <ClearDataView patients={filteredPatients} onDeletePatients={deletePatients} />;
       case 'COLLABORATORS': return <CollaboratorManager user={user!} collaborators={collaborators} onCancel={() => setCurrentView('MAIN_MENU')} onUpdate={async (newList) => {
         try {
           // Identificar todos os colaboradores que mudaram

@@ -43,6 +43,7 @@ const TransferManager: React.FC<TransferManagerProps> = ({ role, patients, onUpd
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<string>('');
   const [showAiReportModal, setShowAiReportModal] = useState(false);
+  const [viewingPatient, setViewingPatient] = useState<Patient | null>(null);
   
   const isAuthorizedToDelete = role === 'enfermeiro' || role === 'coordenacao';
   const isCoordinator = role === 'coordenacao';
@@ -231,6 +232,18 @@ const TransferManager: React.FC<TransferManagerProps> = ({ role, patients, onUpd
     }
   };
 
+  const getFinalizationReason = (p: Patient) => {
+    if (p.status === 'Alta') return 'ALTA MÉDICA';
+    if (p.status === 'Evasão') return 'EVASÃO';
+    if (p.status === 'Transferência UPA') return 'TRANSFERÊNCIA (RETORNO) PARA UPA';
+    if (p.status === 'Transferência Externa') return `TRANSFERÊNCIA EXTERNA - DESTINO: ${p.transferDestinationBed || 'NÃO INFORMADO'}`;
+    if (p.status.includes('Bloco Cirúrgico')) return `TRANSFERÊNCIA PARA O BLOCO CIRÚRGICO (${p.transferDestinationBed || 'BC'})`;
+    if (p.isTransferred && p.transferDestinationSector) {
+      return `TRANSFERÊNCIA PARA OUTRA ENFERMARIA - SETOR: ${p.transferDestinationSector} | LEITO: ${p.transferDestinationBed || 'N/A'}`;
+    }
+    return p.status.toUpperCase();
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-3xl border border-slate-200 shadow-sm no-print">
@@ -325,9 +338,97 @@ const TransferManager: React.FC<TransferManagerProps> = ({ role, patients, onUpd
         </div>
       )}
 
+      {viewingPatient && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-6 bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-300 no-print">
+          <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden border border-slate-200 flex flex-col">
+            <div className="bg-emerald-600 p-6 text-white flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <CheckCircle className="w-6 h-6" />
+                <div>
+                  <h3 className="text-lg font-black uppercase tracking-tight">Atendimento Finalizado</h3>
+                  <p className="text-emerald-100 text-[10px] font-black uppercase tracking-widest">Detalhes do Paciente</p>
+                </div>
+              </div>
+              <button onClick={() => setViewingPatient(null)} className="p-2 bg-white/10 hover:bg-white/20 rounded-xl transition-all">
+                <LogOut className="w-5 h-5 rotate-180" />
+              </button>
+            </div>
+            
+            <div className="p-8 overflow-y-auto custom-scrollbar flex-1 space-y-6">
+              <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl text-center">
+                <p className="text-[10px] font-black text-emerald-800 uppercase tracking-widest mb-1">Motivo da Finalização</p>
+                <p className="text-sm font-black text-emerald-900 uppercase">{getFinalizationReason(viewingPatient)}</p>
+                {viewingPatient.transferredAt && (
+                  <p className="text-[9px] font-bold text-emerald-600 uppercase mt-2">
+                    Data/Hora: {new Date(viewingPatient.transferredAt).toLocaleString('pt-BR')}
+                  </p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nome Completo</p>
+                  <p className="text-sm font-bold text-slate-800 uppercase">{viewingPatient.name}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Prontuário</p>
+                  <p className="text-sm font-bold text-slate-800 uppercase">{viewingPatient.medicalRecord}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Idade</p>
+                  <p className="text-sm font-bold text-slate-800 uppercase">{viewingPatient.age || 'N/A'} ANOS</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Especialidade</p>
+                  <p className="text-sm font-bold text-slate-800 uppercase">{viewingPatient.specialty}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Unidade</p>
+                  <p className="text-sm font-bold text-slate-800 uppercase">{viewingPatient.unit}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Corredor/Leito Origem</p>
+                  <p className="text-sm font-bold text-slate-800 uppercase">{viewingPatient.corridor}</p>
+                </div>
+              </div>
+
+              {viewingPatient.notes && (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Observações</p>
+                  <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs text-slate-600 whitespace-pre-wrap font-medium">
+                    {viewingPatient.notes}
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-4 border-t border-slate-100 grid grid-cols-2 gap-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                <div>Criado em: {new Date(viewingPatient.createdAt).toLocaleString('pt-BR')}</div>
+                <div className="text-right">Por: {viewingPatient.createdBy}</div>
+              </div>
+            </div>
+
+            <div className="p-6 bg-white border-t flex justify-center">
+              <button onClick={() => setViewingPatient(null)} className="px-8 py-4 bg-slate-900 text-white font-black rounded-2xl shadow-lg hover:bg-slate-800 transition-all uppercase text-xs tracking-widest">
+                Fechar Detalhes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 no-print">
         {currentList.map(p => (
-          <div key={p.id} className={`bg-white p-5 rounded-3xl border shadow-sm relative group transition-all hover:shadow-md ${selectedIds.includes(p.id) ? 'ring-2 ring-blue-500 border-blue-500' : 'border-slate-100'}`} onClick={() => historyView && isAuthorizedToDelete && (selectedIds.includes(p.id) ? setSelectedIds(prev => prev.filter(i => i !== p.id)) : setSelectedIds(prev => [...prev, p.id]))}>
+          <div key={p.id} className={`bg-white p-5 rounded-3xl border shadow-sm relative group transition-all hover:shadow-md cursor-pointer ${selectedIds.includes(p.id) ? 'ring-2 ring-blue-500 border-blue-500' : 'border-slate-100'}`} 
+            onClick={() => {
+              if (historyView) {
+                if (selectedIds.length > 0 && isAuthorizedToDelete) {
+                  selectedIds.includes(p.id) ? setSelectedIds(prev => prev.filter(i => i !== p.id)) : setSelectedIds(prev => [...prev, p.id]);
+                } else {
+                  setViewingPatient(p);
+                }
+              }
+            }}
+          >
                <div className="flex items-center gap-3 mb-4">
                   <div className={`p-3 rounded-2xl ${
                     historyView 

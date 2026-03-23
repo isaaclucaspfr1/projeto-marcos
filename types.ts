@@ -81,6 +81,9 @@ export interface Patient {
   externalTransferRequestedAt?: string;
   vitals?: VitalSigns;
   isNew?: boolean;
+  isTransferNew?: boolean;
+  isPendencyNew?: boolean;
+  unit: string;
 }
 
 export interface LeanPatient {
@@ -103,6 +106,7 @@ export interface LeanPatient {
   createdAt: string;
   lastModifiedBy?: string;
   lastModifiedAt?: string;
+  unit: string;
 }
 
 export interface User {
